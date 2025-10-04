@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Card hover effects */
+.ant-card-hoverable {
+  transition: all 0.3s ease !important;
+}
+
+.ant-card-hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Button hover effects */
+.ant-btn {
+  transition: all 0.3s ease !important;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Custom progress bar animation */
+.ant-progress-line {
+  transition: all 0.5s ease !important;
+}
+
+/* Layout transitions */
+.ant-layout-sider {
+  transition: all 0.3s ease !important;
+}
+
+/* Menu item transitions */
+.ant-menu-item {
+  transition: all 0.2s ease !important;
+}
+
+/* Modal animations */
+.ant-modal-mask {
+  animation: fadeIn 0.3s ease;
+}
+
+.ant-modal-wrap {
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Tag animations */
+.ant-tag {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Alert animations */
+.ant-alert {
+  animation: slideIn 0.3s ease;
+}
+
+/* Spin loading override */
+.ant-spin-spinning {
+  transition: all 0.3s ease !important;
+}
+
+/* Table hover effects */
+.ant-table-tbody > tr.ant-table-row:hover > td {
+  transition: background 0.2s ease !important;
+}
+
+/* Form field focus effects */
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
+}
+
+/* Dropdown animations */
+.ant-dropdown {
+  animation: slideIn 0.2s ease;
+}
+
+/* Tabs transitions */
+.ant-tabs-tab {
+  transition: all 0.2s ease !important;
+}
+
+/* Notification animations */
+.ant-notification {
+  animation: slideIn 0.3s ease;
+}
+
+/* Message animations */
+.ant-message {
+  animation: slideIn 0.3s ease;
+}
+
+/* Dark mode specific styles */
+body.dark-mode {
+  background-color: #0B0F14;
+}
+
+body.dark-mode ::-webkit-scrollbar-track {
+  background: #1A1F27;
+}
+
+body.dark-mode ::-webkit-scrollbar-thumb {
+  background: #4B5563;
+}
+
+body.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: #6B7280;
+}

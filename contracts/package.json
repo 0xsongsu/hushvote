@@ -1,0 +1,85 @@
+{
+  "name": "hushvote-contracts",
+  "version": "1.0.0",
+  "description": "HushVote - FHE-enabled privacy-preserving voting smart contracts using Zama",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "compile:sepolia": "hardhat compile --network sepolia",
+    "test": "hardhat test",
+    "test:sepolia": "hardhat test --network sepolia",
+    "test:coverage": "hardhat coverage",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "create-voting:sepolia": "hardhat run scripts/create-voting-sepolia.js --network sepolia",
+    "deploy:devnet": "hardhat run scripts/deploy.js --network zama",
+    "verify": "hardhat verify",
+    "clean": "hardhat clean",
+    "node": "hardhat node",
+    "console": "hardhat console",
+    "size": "hardhat size-contracts",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "prettier": "prettier --write 'contracts/**/*.sol'",
+    "slither": "slither ."
+  },
+  "keywords": [
+    "FHE",
+    "voting",
+    "privacy",
+    "blockchain",
+    "zama",
+    "homomorphic-encryption"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@fhevm/mock-utils": "^0.0.1-6",
+    "@fhevm/solidity": "^0.8.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.2",
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.0",
+    "@openzeppelin/hardhat-upgrades": "^3.9.1",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^4.3.10",
+    "@types/mocha": "^10.0.4",
+    "@types/node": "^20.9.0",
+    "@zama-fhe/oracle-solidity": "^0.1.0",
+    "@zama-fhe/relayer-sdk": "^0.1.2",
+    "chai": "^4.3.10",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.8.1",
+    "hardhat": "^2.19.1",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "prettier": "^3.1.0",
+    "prettier-plugin-solidity": "^1.2.0",
+    "solhint": "^4.0.0",
+    "solidity-coverage": "^0.8.5",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.3.2",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts-upgradeable": "^5.0.0",
+    "fhevm-contracts": "^0.2.4"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/fhe-voting-contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/fhe-voting-contracts/issues"
+  },
+  "homepage": "https://github.com/your-org/fhe-voting-contracts#readme",
+  "directories": {
+    "test": "test"
+  }
+}

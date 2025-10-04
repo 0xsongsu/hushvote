@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "env": {
+    "VITE_CONTRACT_ADDRESS": "0x638BFAd8A961eb1b44A5B0d5B30707D5A2cA6960",
+    "VITE_CHAIN_ID": "11155111",
+    "VITE_RPC_URL": "https://1rpc.io/sepolia",
+    "VITE_APP_NAME": "HushVote"
+  }
+}
