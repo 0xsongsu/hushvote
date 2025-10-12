@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { connectWallet, switchNetwork, WalletInfo } from '../utils/wallet';
-import { RELAYER_CONFIG } from '../utils/fhe';
+import { SUPPORTED_CHAINS } from '../config/contracts';
 import { message } from 'antd';
 
 export function useWallet() {
@@ -52,9 +52,9 @@ export function useWallet() {
       const walletInfo = await connectWallet();
       
       // Check if on correct network (Sepolia)
-      if (walletInfo.chainId !== RELAYER_CONFIG.CHAIN_ID) {
+      if (walletInfo.chainId !== SUPPORTED_CHAINS.SEPOLIA) {
         message.info('Switching to Sepolia...');
-        await switchNetwork(RELAYER_CONFIG.CHAIN_ID);
+        await switchNetwork(SUPPORTED_CHAINS.SEPOLIA);
         // Reconnect after network switch
         const updatedWallet = await connectWallet();
         setWallet(updatedWallet);
@@ -81,8 +81,8 @@ export function useWallet() {
       throw new Error('Wallet not connected');
     }
     
-    if (wallet.chainId !== RELAYER_CONFIG.CHAIN_ID) {
-      await switchNetwork(RELAYER_CONFIG.CHAIN_ID);
+    if (wallet.chainId !== SUPPORTED_CHAINS.SEPOLIA) {
+      await switchNetwork(SUPPORTED_CHAINS.SEPOLIA);
       const updatedWallet = await connectWallet();
       setWallet(updatedWallet);
     }

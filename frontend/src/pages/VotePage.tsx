@@ -32,7 +32,7 @@ import { useFHE } from '../hooks/useFHE';
 import { useWallet } from '../hooks/useWallet';
 import { getVotingFrom as getVotingOnchainFrom, castVote as castVoteOnchain, castWeightedVote as castWeightedVoteOnchain, castQuadraticVote as castQuadraticVoteOnchain, getStatusFrom } from '../services/contractService';
 import { VotingType, VotingOption } from '../types';
-import { RELAYER_CONFIG } from '../utils/fhe';
+import { encryptMultipleOptions } from '../utils/fhe';
 import { CONTRACT_ADDRESSES, SUPPORTED_CHAINS } from '../config/contracts';
 
 const { Content } = Layout;
