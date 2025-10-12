@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import FHEBallotABI from '../abi/FHEBallot.json';
+import FHEQuadraticVotingABI from '../abi/FHEQuadraticVoting.json';
 import { CONTRACT_ADDRESSES, SUPPORTED_CHAINS, RPC_URLS } from '../config/contracts';
 
 // Contract instances
@@ -64,7 +65,7 @@ export async function initializeContract() {
     // Create contract instances
     contractInstance = new ethers.Contract(ballotAddress, FHEBallotABI.abi, signer);
     if (quadraticAddress) {
-      quadraticContractInstance = new ethers.Contract(quadraticAddress, FHEBallotABI.abi, signer);
+      quadraticContractInstance = new ethers.Contract(quadraticAddress, FHEQuadraticVotingABI.abi, signer);
     }
 
     console.log('FHEBallot initialized at:', ballotAddress);
@@ -118,7 +119,7 @@ function getReadBallot() {
 function getReadQuadratic() {
   const p = getReadProvider();
   const addr = CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEQuadraticVoting;
-  return new ethers.Contract(addr, FHEBallotABI.abi, p);
+  return new ethers.Contract(addr, FHEQuadraticVotingABI.abi, p);
 }
 
 // Build EIP-1559 fee + gasLimit overrides to improve confirmation time on Sepolia
