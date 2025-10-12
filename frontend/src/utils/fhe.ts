@@ -1,101 +1,147 @@
-import { createInstance as createRelayerInstance } from '@zama-fhe/relayer-sdk/web';
-import { BrowserProvider, ethers } from 'ethers';
+// FHE utilities using ZAMA SDK from CDN (compatible with Sepolia)
+// Based on working implementation from Zamabelief project
 
-// Relayer/Verifier/ACL/KMS configuration (Sepolia default addresses, can be overridden via environment variables)
-export const RELAYER_CONFIG = {
-  // Host chain (Sepolia) contracts
-  ACL_CONTRACT_ADDRESS: import.meta.env.VITE_FHE_ACL_ADDRESS || '0x687820221192C5B662b25367F70076A37bc79b6c',
-  KMS_VERIFIER_CONTRACT_ADDRESS: import.meta.env.VITE_FHE_KMS_ADDRESS || '0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC',
-  INPUT_VERIFIER_CONTRACT_ADDRESS: import.meta.env.VITE_FHE_INPUT_VERIFIER_ADDRESS || '0xbc91f3daD1A5F19F8390c400196e58073B6a0BC4',
-  // Gateway chain verification contracts
-  VERIFY_DECRYPTION_ADDRESS: import.meta.env.VITE_FHE_VERIFY_DECRYPTION || '0xb6E160B1ff80D67Bfe90A85eE06Ce0A2613607D1',
-  VERIFY_INPUT_ADDRESS: import.meta.env.VITE_FHE_VERIFY_INPUT || '0x7048C39f048125eDa9d678AEbaDfB22F7900a29F',
-  // Chain ID and RPC/Relayer
-  CHAIN_ID: Number(import.meta.env.VITE_CHAIN_ID || 11155111),
-  GATEWAY_CHAIN_ID: Number(import.meta.env.VITE_FHE_GATEWAY_CHAIN_ID || 55815),
-  RPC_URL: import.meta.env.VITE_RPC_URL || 'https://1rpc.io/sepolia',
-  RELAYER_URL: import.meta.env.VITE_FHE_RELAYER_URL || 'https://relayer.testnet.zama.cloud',
-};
+import { ethers, getAddress, hexlify } from 'ethers';
 
-type RelayerInstance = Awaited<ReturnType<typeof createRelayerInstance>> | null;
-let relayer: RelayerInstance = null;
+let fheInstance: any = null;
 
-const toHex = (bytes: Uint8Array) => '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+// Initialize FHE instance using CDN-loaded SDK with SepoliaConfig
+export async function initializeFHE(): Promise<any> {
+  if (fheInstance) return fheInstance;
 
-export async function initializeFHE(): Promise<RelayerInstance> {
-  if (relayer) return relayer;
-  const provider = new ethers.JsonRpcProvider(RELAYER_CONFIG.RPC_URL);
-  relayer = await createRelayerInstance({
-    // Host chain configuration (Sepolia)
-    aclContractAddress: RELAYER_CONFIG.ACL_CONTRACT_ADDRESS,
-    kmsContractAddress: RELAYER_CONFIG.KMS_VERIFIER_CONTRACT_ADDRESS,
-    inputVerifierContractAddress: RELAYER_CONFIG.INPUT_VERIFIER_ADDRESS,
-    chainId: RELAYER_CONFIG.CHAIN_ID,
-    // Gateway chain configuration
-    verifyingContractAddressDecryption: RELAYER_CONFIG.VERIFY_DECRYPTION_ADDRESS,
-    verifyingContractAddressInputVerification: RELAYER_CONFIG.VERIFY_INPUT_ADDRESS,
-    gatewayChainId: RELAYER_CONFIG.GATEWAY_CHAIN_ID,
-    // Network and Relayer
-    network: RELAYER_CONFIG.RPC_URL,
-    relayerUrl: RELAYER_CONFIG.RELAYER_URL,
-  });
-  return relayer;
+  // Check if ethereum is available
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('Ethereum provider not found. Please install MetaMask or connect a wallet.');
+  }
+
+  try {
+    // Load SDK from CDN (0.2.0 - stable version)
+    console.log('Loading ZAMA SDK from CDN...');
+    const sdk: any = await import('https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.js');
+
+    const { initSDK, createInstance, SepoliaConfig } = sdk as any;
+
+    // Initialize WASM
+    await initSDK();
+
+    // Create instance with SepoliaConfig and MetaMask provider
+    const config = { ...SepoliaConfig, network: window.ethereum };
+    fheInstance = await createInstance(config);
+
+    console.log('✅ FHE instance initialized successfully');
+    return fheInstance;
+  } catch (err) {
+    console.error('❌ FHE initialization failed:', err);
+    throw new Error(`FHE initialization failed: ${err}`);
+  }
 }
 
-export async function encryptVoteUsingRelayer(
-  contractAddress: string,
-  userAddress: string,
-  optionIndex: number
-): Promise<{ handle: string; proof: string }> {
-  const sdk = await initializeFHE();
-  if (!sdk) throw new Error('Relayer SDK init failed');
-  const builder = sdk.createEncryptedInput(contractAddress, userAddress);
-  builder.add32(optionIndex);
-  const { handles, inputProof } = await builder.encrypt();
-  const handle = toHex(handles[0]);
-  const proof = toHex(inputProof);
-  return { handle, proof };
+// Get existing FHE instance
+export function getFheInstance() {
+  return fheInstance;
 }
 
+// Encrypt a single vote option (32-bit integer)
 export async function encryptVote(
   optionIndex: number,
   contractAddress: string,
   userAddress: string
 ): Promise<{ handle: string; proof: string }> {
-  return encryptVoteUsingRelayer(contractAddress, userAddress, optionIndex);
+  let fhe = getFheInstance();
+  if (!fhe) {
+    fhe = await initializeFHE();
+  }
+  if (!fhe) throw new Error('Failed to initialize FHE instance');
+
+  const contractAddressChecksum = getAddress(contractAddress) as `0x${string}`;
+
+  // Create encrypted input
+  const ciphertext = await fhe.createEncryptedInput(contractAddressChecksum, userAddress);
+  ciphertext.add32(optionIndex); // Add 32-bit integer
+
+  // Encrypt and get handles + proof
+  const { handles, inputProof } = await ciphertext.encrypt();
+
+  const handle = hexlify(handles[0]);
+  const proof = hexlify(inputProof);
+
+  return { handle, proof };
 }
 
+// Encrypt a vote with weight (for weighted voting)
 export async function encryptWeightedVote(
   optionIndex: number,
   weight: number,
   contractAddress: string,
   userAddress: string
 ): Promise<{ choice: { handle: string; proof: string }; weight: number }> {
-  const choice = await encryptVoteUsingRelayer(contractAddress, userAddress, optionIndex);
+  const choice = await encryptVote(optionIndex, contractAddress, userAddress);
   return { choice, weight };
 }
 
+// Encrypt multiple options (for quadratic voting)
 export async function encryptMultipleOptions(
   contractAddress: string,
   userAddress: string,
-  optionCount: number
+  options: number[]
 ): Promise<{ handles: string[]; proof: string }> {
-  const sdk = await initializeFHE();
-  if (!sdk) throw new Error('Relayer SDK init failed');
-  const builder = sdk.createEncryptedInput(contractAddress, userAddress);
-  for (let i = 0; i < optionCount; i++) builder.add32(i);
-  const { handles, inputProof } = await builder.encrypt();
-  const handlesHex = handles.map((h: Uint8Array) => toHex(h));
-  const proofHex = toHex(inputProof as Uint8Array);
+  let fhe = getFheInstance();
+  if (!fhe) {
+    fhe = await initializeFHE();
+  }
+  if (!fhe) throw new Error('Failed to initialize FHE instance');
+
+  const contractAddressChecksum = getAddress(contractAddress) as `0x${string}`;
+
+  // Create encrypted input with multiple values
+  const ciphertext = await fhe.createEncryptedInput(contractAddressChecksum, userAddress);
+  for (const option of options) {
+    ciphertext.add32(option);
+  }
+
+  const { handles, inputProof } = await ciphertext.encrypt();
+
+  const handlesHex = handles.map((h: Uint8Array) => hexlify(h));
+  const proofHex = hexlify(inputProof as Uint8Array);
+
   return { handles: handlesHex, proof: proofHex };
 }
 
-// Legacy interface compatibility: no longer performs local "re-encryption", returns original ciphertext directly
+// Decrypt a value using the relayer (for results display)
+export async function decryptValue(encryptedBytes: string): Promise<number> {
+  const fhe = getFheInstance();
+  if (!fhe) throw new Error('FHE instance not initialized. Call initializeFHE() first.');
+
+  try {
+    let handle = encryptedBytes;
+    if (typeof handle === "string" && handle.startsWith("0x") && handle.length === 66) {
+      const values = await fhe.publicDecrypt([handle]);
+      // values is an object: { [handle]: value }
+      return Number(values[handle]);
+    } else {
+      throw new Error('Invalid ciphertext handle for decryption');
+    }
+  } catch (error: any) {
+    if (error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError')) {
+      throw new Error('Decryption service is temporarily unavailable. Please try again later.');
+    }
+    throw error;
+  }
+}
+
+// Legacy compatibility functions
+export async function encryptVoteUsingRelayer(
+  contractAddress: string,
+  userAddress: string,
+  optionIndex: number
+): Promise<{ handle: string; proof: string }> {
+  return encryptVote(optionIndex, contractAddress, userAddress);
+}
+
 export async function reencryptVote(encryptedVote: string): Promise<string> {
   return encryptedVote;
 }
 
-// Legacy interface compatibility: real proof is returned by relayer's encrypt(); this function is kept but no longer used
 export function generateProof(_encryptedVote: string, _voter: string): string {
   return '0x';
 }
