@@ -156,7 +156,7 @@ contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
         nonReentrant {
         
         require(!voterInfo[votingId][msg.sender].hasVoted, "Already voted");
-        // 通过 Relayer inputProof 验证并将外部密文转换为链上 euint32
+        // Verify via Relayer inputProof and convert external ciphertext to on-chain euint32
         euint32 encryptedChoice = FHE.fromExternal(encryptedVote, proof);
         
         // Validate choice is within range (0 to numOptions-1) - optional in mock path
@@ -211,7 +211,7 @@ contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
         require(votingConfigs[votingId].voteType == VoteType.Weighted, "Not weighted voting");
         require(!voterInfo[votingId][msg.sender].hasVoted, "Already voted");
         require(weight > 0 && weight <= voterInfo[votingId][msg.sender].votingPower, "Invalid weight");
-        // 外部密文转换
+        // External ciphertext conversion
         euint32 encryptedChoice = FHE.fromExternal(encryptedVote, proof);
         
         // Store weighted vote

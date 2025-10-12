@@ -118,13 +118,13 @@ export const VotePage: React.FC = () => {
         } else if (voting.type === VotingType.QUADRATIC) {
           // Build arrays for encryptedVotes and credits
           const creditsArr: number[] = voting.options.map((opt) => quadraticCredits[opt.id] || 0);
-          // 使用单次打包多变量的加密，确保 proof 覆盖所有 handles
+          // Use single batch encryption for multiple variables, ensuring proof covers all handles
           const { handles, proof } = await encryptMultipleOptions(contractAddr, userAddr, voting.options.length);
           await castQuadraticVoteOnchain(Number(id), handles, creditsArr, proof);
           encryptedData = handles;
         }
-        
-        // 从 relayer 获取的 inputProof（单选/加权场景）
+
+        // InputProof obtained from relayer (for single choice/weighted voting scenarios)
         let proof: string | undefined = undefined;
         if (voting.type === VotingType.SINGLE_CHOICE) {
           proof = (encryptedData as any).proof || undefined;

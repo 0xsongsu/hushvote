@@ -409,7 +409,7 @@ export async function getAllVotings(): Promise<VotingData[]> {
           try { list.push(await getVotingFrom('ballot', i)); } catch {}
         }
       } catch {
-        // Fallback: use VotingCreated events via queryFilter（更兼容）
+        // Fallback: use VotingCreated events via queryFilter (more compatible)
         const latest = await getReadProvider().getBlockNumber();
         const fromBlock = latest > 100000 ? latest - 100000 : 0; // limit window to speed up
         let logs: any[] = [];

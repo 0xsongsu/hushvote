@@ -59,7 +59,7 @@ export const CreateVoting: React.FC = () => {
       let startTimeUnix = Math.floor(startTime.unix());
       const endTimeUnix = Math.floor(endTime.unix());
       
-      // If start time is too近,调整为1分钟后，便于测试
+      // If start time is too close, adjust to 1 minute later for testing convenience
       if (startTimeUnix < now + 60) { // 1 minute buffer
         startTimeUnix = now + 60;
         message.info('Start time adjusted to 1 minute from now');

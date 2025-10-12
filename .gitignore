@@ -43,3 +43,10 @@ coverage.json
 tmp/
 temp/
 *.tmp
+
+# Old project folder (not needed in repo)
+hushvote-chain-poll-main/
+
+# Vite cache
+.vite/
+**/node_modules/.vite/

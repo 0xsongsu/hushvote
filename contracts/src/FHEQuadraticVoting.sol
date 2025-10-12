@@ -68,7 +68,7 @@ contract FHEQuadraticVoting is FHEBallot, IFHEQuadraticVoting {
         require(!voterInfo[votingId][msg.sender].hasVoted, "Already voted");
         require(encryptedVotes.length == credits.length, "Mismatched arrays");
         require(encryptedVotes.length == votingOptions[votingId].length, "Invalid options count");
-        // 使用第一个句柄与 proof 做一致性校验（proof 对应整组 handles）
+        // Use the first handle with proof for consistency check (proof corresponds to entire set of handles)
         FHE.fromExternal(encryptedVotes[0], proof);
         
         uint256 totalCreditsUsed = _calculateTotalQuadraticCost(credits);
