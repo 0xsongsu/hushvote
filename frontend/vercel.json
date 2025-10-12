@@ -6,7 +6,7 @@
     { "source": "/(.*)", "destination": "/" }
   ],
   "env": {
-    "VITE_CONTRACT_ADDRESS": "0x638BFAd8A961eb1b44A5B0d5B30707D5A2cA6960",
+    "VITE_CONTRACT_ADDRESS": "0xa7D3cdfDe2E3A6bB7c68bC4Ffe747f00828d14b2",
     "VITE_CHAIN_ID": "11155111",
     "VITE_RPC_URL": "https://1rpc.io/sepolia",
     "VITE_APP_NAME": "HushVote"

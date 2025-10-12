@@ -4,8 +4,8 @@ import { getAddress } from 'ethers';
 export const CONTRACT_ADDRESSES = {
   // Sepolia Testnet
   11155111: {
-    FHEBallot: getAddress('0x0b07c7cd59eee60ae68989ba3f97210bf42a449c'),
-    FHEQuadraticVoting: getAddress('0x2c5d2e0a35ce77001f638495e6e399765cc650c1'),
+    FHEBallot: getAddress('0xa7D3cdfDe2E3A6bB7c68bC4Ffe747f00828d14b2'),
+    FHEQuadraticVoting: getAddress('0x4E2a4FcE9Fc70f970665E1F99A01C63a3385F928'),
   },
   // Local development
   31337: {
