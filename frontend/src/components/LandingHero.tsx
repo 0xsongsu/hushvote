@@ -150,6 +150,53 @@ const LandingHero: React.FC = () => {
             Learn More
           </Button>
         </div>
+
+        {/* Demo Video Section */}
+        <div style={{
+          marginTop: '64px',
+          maxWidth: '900px',
+          margin: '64px auto 0',
+        }}>
+          <h3 style={{
+            fontSize: '24px',
+            fontWeight: 600,
+            color: 'rgba(255, 255, 255, 0.9)',
+            marginBottom: '24px',
+            textAlign: 'center',
+          }}>
+            See HushVote in Action
+          </h3>
+          <div style={{
+            position: 'relative',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3), 0 0 40px rgba(99, 102, 241, 0.2)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            background: 'rgba(0, 0, 0, 0.2)',
+            backdropFilter: 'blur(10px)',
+          }}>
+            <video
+              controls
+              style={{
+                width: '100%',
+                height: 'auto',
+                display: 'block',
+              }}
+              poster="/demo-poster.jpg"
+            >
+              <source src="/demo.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          <p style={{
+            fontSize: '14px',
+            color: 'rgba(255, 255, 255, 0.5)',
+            marginTop: '16px',
+            textAlign: 'center',
+          }}>
+            Watch a live demonstration of privacy-preserving voting with FHE
+          </p>
+        </div>
       </div>
 
       <style>{`

@@ -3,6 +3,15 @@
 <div align="center">
   <img src="./lockup_monogram_hv.svg" alt="HushVote Logo" width="300"/>
   <h3>A decentralized voting platform leveraging Fully Homomorphic Encryption (FHE) for complete voter privacy</h3>
+
+  <p>
+    <a href="https://hushvote.vercel.app" target="_blank">
+      <img src="https://img.shields.io/badge/🚀_Live_Demo-hushvote.vercel.app-6366f1?style=for-the-badge" alt="Live Demo"/>
+    </a>
+    <a href="https://sepolia.etherscan.io" target="_blank">
+      <img src="https://img.shields.io/badge/Network-Sepolia_Testnet-orange?style=for-the-badge" alt="Network"/>
+    </a>
+  </p>
 </div>
 
 ## Table of Contents
