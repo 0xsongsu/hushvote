@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
-import { externalEuint32 } from "encrypted-types/EncryptedTypes.sol";
+import "encrypted-types/EncryptedTypes.sol";
 
 /**
  * @title IFHEVoting
  * @notice Interface for FHE-enabled voting contracts
  * @dev Defines the standard interface for privacy-preserving voting using Fully Homomorphic Encryption
+ * @dev Updated for fhEVM 0.9.1 - uses externalEuint32 for external encrypted inputs
  */
 interface IFHEVoting {
     // Enums
@@ -91,7 +92,7 @@ interface IFHEVoting {
         uint256 quorum
     );
 
-    // Core voting functions
+    // Core voting functions - updated for fhEVM 0.9.1
     function castVote(
         uint256 votingId,
         externalEuint32 encryptedVote,
