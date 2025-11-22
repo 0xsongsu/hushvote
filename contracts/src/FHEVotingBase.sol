@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * @title FHEVotingBase
  * @notice Base contract providing FHE utilities and common functionality for voting contracts
  * @dev Implements core FHE operations, access control, and security features
+ * @dev Updated for fhEVM 0.9.1
  */
 abstract contract FHEVotingBase is Ownable, ReentrancyGuard, Pausable {
     constructor(address initialOwner) Ownable(initialOwner) {}
