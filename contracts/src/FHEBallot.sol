@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import "./FHEVotingBase.sol";
 import "./IFHEVoting.sol";
 import "@fhevm/solidity/lib/FHE.sol";
-import { externalEuint32 } from "encrypted-types/EncryptedTypes.sol";
-// Use the FHE coprocessor config for Sepolia from @fhevm/solidity
-import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import "encrypted-types/EncryptedTypes.sol";
+// Use the FHE coprocessor config for Ethereum networks from @fhevm/solidity 0.9.1
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /**
  * @title FHEBallot
  * @notice Main voting contract implementing privacy-preserving voting with FHE
  * @dev Supports multiple voting types with encrypted vote tallying
- * @dev Inherits SepoliaConfig to initialize FHE coprocessor addresses on Sepolia
+ * @dev Updated for fhEVM 0.9.1 - inherits ZamaEthereumConfig for FHE coprocessor addresses
  */
-contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
+contract FHEBallot is FHEVotingBase, IFHEVoting, ZamaEthereumConfig {
     // State variables
     uint256 private votingIdCounter;
     
@@ -141,22 +141,22 @@ contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
     /**
      * @notice Cast an encrypted vote
      * @param votingId The voting ID
-     * @param encryptedVote Encrypted vote data
+     * @param encryptedVote Encrypted vote data (externalEuint32 for fhEVM 0.9.1)
      * @param proof Zero-knowledge proof of vote validity
      */
     function castVote(
         uint256 votingId,
         externalEuint32 encryptedVote,
         bytes calldata proof
-    ) external override 
+    ) external override
         votingExists(votingId)
         onlyDuringVoting(votingId)
         onlyWhitelisted(votingId)
         whenNotPaused
         nonReentrant {
-        
+
         require(!voterInfo[votingId][msg.sender].hasVoted, "Already voted");
-        // Verify via Relayer inputProof and convert external ciphertext to on-chain euint32
+        // Convert external ciphertext to on-chain euint32 using fhEVM 0.9.1 API
         euint32 encryptedChoice = FHE.fromExternal(encryptedVote, proof);
         
         // Validate choice is within range (0 to numOptions-1) - optional in mock path
@@ -192,7 +192,7 @@ contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
     /**
      * @notice Cast a weighted vote
      * @param votingId The voting ID
-     * @param encryptedVote Encrypted vote data
+     * @param encryptedVote Encrypted vote data (externalEuint32 for fhEVM 0.9.1)
      * @param weight Vote weight
      * @param proof Zero-knowledge proof
      */
@@ -207,11 +207,11 @@ contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
         onlyWhitelisted(votingId)
         whenNotPaused
         nonReentrant {
-        
+
         require(votingConfigs[votingId].voteType == VoteType.Weighted, "Not weighted voting");
         require(!voterInfo[votingId][msg.sender].hasVoted, "Already voted");
         require(weight > 0 && weight <= voterInfo[votingId][msg.sender].votingPower, "Invalid weight");
-        // External ciphertext conversion
+        // Convert external ciphertext using fhEVM 0.9.1 API
         euint32 encryptedChoice = FHE.fromExternal(encryptedVote, proof);
         
         // Store weighted vote
@@ -486,11 +486,188 @@ contract FHEBallot is FHEVotingBase, IFHEVoting, SepoliaConfig {
     function getVotingOptions(uint256 votingId) external view returns (string[] memory) {
         uint256 numOptions = votingOptions[votingId].length;
         string[] memory options = new string[](numOptions);
-        
+
         for (uint256 i = 0; i < numOptions; i++) {
             options[i] = votingOptions[votingId][i].name;
         }
-        
+
         return options;
+    }
+
+    // ==================== BATCH READ FUNCTIONS FOR FRONTEND OPTIMIZATION ====================
+
+    /**
+     * @notice Voting summary struct for batch reading
+     */
+    struct VotingSummary {
+        uint256 id;
+        string name;
+        string description;
+        uint8 voteType;
+        uint256 startTime;
+        uint256 endTime;
+        uint8 status;           // 0=NotStarted, 1=Active, 2=Ended, 3=Tallied
+        uint256 totalVoters;
+        uint256 numOptions;
+        bool resultsAvailable;
+    }
+
+    /**
+     * @notice Get summary of a single voting (all key data in one call)
+     * @param votingId The voting ID
+     * @return summary VotingSummary struct with all key data
+     */
+    function getVotingSummary(uint256 votingId) public view returns (VotingSummary memory summary) {
+        VotingConfig memory cfg = votingConfigs[votingId];
+
+        // Determine status based on time
+        uint8 status;
+        if (votingStatus[votingId] == VotingStatus.Tallied) {
+            status = 3;
+        } else if (block.timestamp < cfg.startTime) {
+            status = 0;
+        } else if (block.timestamp <= cfg.endTime) {
+            status = 1;
+        } else {
+            status = 2;
+        }
+
+        summary = VotingSummary({
+            id: votingId,
+            name: cfg.name,
+            description: cfg.description,
+            voteType: uint8(cfg.voteType),
+            startTime: cfg.startTime,
+            endTime: cfg.endTime,
+            status: status,
+            totalVoters: totalVoters[votingId],
+            numOptions: votingOptions[votingId].length,
+            resultsAvailable: resultsDecrypted[votingId]
+        });
+    }
+
+    /**
+     * @notice Batch get voting summaries for multiple votings
+     * @param votingIds Array of voting IDs to query
+     * @return summaries Array of VotingSummary structs
+     */
+    function batchGetVotingSummaries(uint256[] calldata votingIds) external view returns (VotingSummary[] memory summaries) {
+        summaries = new VotingSummary[](votingIds.length);
+        for (uint256 i = 0; i < votingIds.length; i++) {
+            summaries[i] = getVotingSummary(votingIds[i]);
+        }
+    }
+
+    /**
+     * @notice Get all voting summaries from ID 0 to votingCounter-1
+     * @return summaries Array of all VotingSummary structs
+     */
+    function getAllVotingSummaries() external view returns (VotingSummary[] memory summaries) {
+        uint256 count = votingIdCounter;
+        summaries = new VotingSummary[](count);
+        for (uint256 i = 0; i < count; i++) {
+            summaries[i] = getVotingSummary(i);
+        }
+    }
+
+    /**
+     * @notice Batch check if user has voted for multiple votings
+     * @param votingIds Array of voting IDs
+     * @param user User address to check
+     * @return hasVotedArray Array of booleans indicating if user has voted
+     */
+    function batchHasVoted(uint256[] calldata votingIds, address user) external view returns (bool[] memory hasVotedArray) {
+        hasVotedArray = new bool[](votingIds.length);
+        for (uint256 i = 0; i < votingIds.length; i++) {
+            hasVotedArray[i] = voterInfo[votingIds[i]][user].hasVoted;
+        }
+    }
+
+    /**
+     * @notice Get voting options for multiple votings in one call
+     * @param votingIds Array of voting IDs
+     * @return allOptions Array of arrays containing option names for each voting
+     */
+    function batchGetVotingOptions(uint256[] calldata votingIds) external view returns (string[][] memory allOptions) {
+        allOptions = new string[][](votingIds.length);
+        for (uint256 i = 0; i < votingIds.length; i++) {
+            uint256 numOptions = votingOptions[votingIds[i]].length;
+            allOptions[i] = new string[](numOptions);
+            for (uint256 j = 0; j < numOptions; j++) {
+                allOptions[i][j] = votingOptions[votingIds[i]][j].name;
+            }
+        }
+    }
+
+    /**
+     * @notice Get full voting data including options in one call
+     * @param votingId The voting ID
+     * @return summary VotingSummary struct
+     * @return options Array of option names
+     */
+    function getVotingFull(uint256 votingId) external view returns (
+        VotingSummary memory summary,
+        string[] memory options
+    ) {
+        summary = getVotingSummary(votingId);
+
+        uint256 numOptions = votingOptions[votingId].length;
+        options = new string[](numOptions);
+        for (uint256 i = 0; i < numOptions; i++) {
+            options[i] = votingOptions[votingId][i].name;
+        }
+    }
+
+    /**
+     * @notice Get all votings with full data (summaries + options) - optimized for frontend list view
+     * @return summaries Array of VotingSummary structs
+     * @return allOptions Array of arrays containing option names
+     */
+    function getAllVotingsFull() external view returns (
+        VotingSummary[] memory summaries,
+        string[][] memory allOptions
+    ) {
+        uint256 count = votingIdCounter;
+        summaries = new VotingSummary[](count);
+        allOptions = new string[][](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            summaries[i] = getVotingSummary(i);
+
+            uint256 numOptions = votingOptions[i].length;
+            allOptions[i] = new string[](numOptions);
+            for (uint256 j = 0; j < numOptions; j++) {
+                allOptions[i][j] = votingOptions[i][j].name;
+            }
+        }
+    }
+
+    /**
+     * @notice Get user's voting status for all votings in one call
+     * @param user User address
+     * @return hasVotedArray Array of booleans for all votings
+     */
+    function getAllUserVoteStatus(address user) external view returns (bool[] memory hasVotedArray) {
+        uint256 count = votingIdCounter;
+        hasVotedArray = new bool[](count);
+        for (uint256 i = 0; i < count; i++) {
+            hasVotedArray[i] = voterInfo[i][user].hasVoted;
+        }
+    }
+
+    /**
+     * @notice Get decrypted results for multiple votings (only returns for tallied votings)
+     * @param votingIds Array of voting IDs
+     * @return allResults Array of result arrays (empty array if not tallied)
+     */
+    function batchGetResults(uint256[] calldata votingIds) external view returns (uint256[][] memory allResults) {
+        allResults = new uint256[][](votingIds.length);
+        for (uint256 i = 0; i < votingIds.length; i++) {
+            if (resultsDecrypted[votingIds[i]]) {
+                allResults[i] = decryptedResults[votingIds[i]];
+            } else {
+                allResults[i] = new uint256[](0);
+            }
+        }
     }
 }
