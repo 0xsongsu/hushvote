@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import "./FHEBallot.sol";
 import "./IFHEVoting.sol";
 import "@fhevm/solidity/lib/FHE.sol";
-import { externalEuint32 } from "encrypted-types/EncryptedTypes.sol";
+import "encrypted-types/EncryptedTypes.sol";
 
 /**
  * @title FHEQuadraticVoting
  * @notice Implements quadratic voting with FHE for privacy-preserving democratic voting
  * @dev Extends FHEBallot with quadratic voting mechanisms where cost increases quadratically
+ * @dev Updated for fhEVM 0.9.1 - uses externalEuint32 for external encrypted inputs
  */
 contract FHEQuadraticVoting is FHEBallot, IFHEQuadraticVoting {
     
@@ -48,7 +49,7 @@ contract FHEQuadraticVoting is FHEBallot, IFHEQuadraticVoting {
     /**
      * @notice Cast quadratic votes across multiple options
      * @param votingId The voting ID
-     * @param encryptedVotes Array of encrypted vote allocations per option
+     * @param encryptedVotes Array of encrypted vote allocations per option (externalEuint32 for fhEVM 0.9.1)
      * @param credits Array of credit allocations per option
      * @param proof Zero-knowledge proof of valid allocation
      */
@@ -63,7 +64,7 @@ contract FHEQuadraticVoting is FHEBallot, IFHEQuadraticVoting {
         onlyWhitelisted(votingId)
         whenNotPaused
         nonReentrant {
-        
+
         require(votingConfigs[votingId].voteType == VoteType.Quadratic, "Not quadratic voting");
         require(!voterInfo[votingId][msg.sender].hasVoted, "Already voted");
         require(encryptedVotes.length == credits.length, "Mismatched arrays");
