@@ -2,10 +2,10 @@ import { getAddress } from 'ethers';
 
 // Contract addresses for HushVote (using getAddress to ensure proper checksum)
 export const CONTRACT_ADDRESSES = {
-  // Sepolia Testnet
+  // Sepolia Testnet - Deployed Dec 5, 2025
   11155111: {
-    FHEBallot: getAddress('0xa7D3cdfDe2E3A6bB7c68bC4Ffe747f00828d14b2'),
-    FHEQuadraticVoting: getAddress('0x4E2a4FcE9Fc70f970665E1F99A01C63a3385F928'),
+    FHEBallot: getAddress('0x14F44201Cb91929e4dddB5455DE26B720A81d327'),
+    FHEQuadraticVoting: getAddress('0x9a075d9a70Cb72884Abf2c42bd48497b1125510e'),
   },
   // Local development
   31337: {

@@ -23,6 +23,22 @@ export interface VotingData {
   totalVotes: number;
   isActive: boolean;
   source?: 'ballot' | 'quadratic';
+  status?: number; // 0=NotStarted, 1=Active, 2=Ended, 3=Tallied
+  resultsAvailable?: boolean;
+}
+
+// VotingSummary from contract - matches the struct in FHEBallot
+export interface VotingSummary {
+  id: bigint;
+  name: string;
+  description: string;
+  voteType: number;
+  startTime: bigint;
+  endTime: bigint;
+  status: number;
+  totalVoters: bigint;
+  numOptions: bigint;
+  resultsAvailable: boolean;
 }
 
 // Initialize contract connection
@@ -630,5 +646,211 @@ export async function castQuadraticVote(
   } catch (error) {
     console.error('Failed to cast quadratic vote:', error);
     throw error;
+  }
+}
+
+// ==================== OPTIMIZED BATCH READ FUNCTIONS ====================
+
+/**
+ * Convert VotingSummary from contract to VotingData
+ */
+function summaryToVotingData(
+  summary: VotingSummary,
+  options: string[],
+  source: 'ballot' | 'quadratic'
+): VotingData {
+  const now = Math.floor(Date.now() / 1000);
+  const startTime = Number(summary.startTime);
+  const endTime = Number(summary.endTime);
+
+  return {
+    id: Number(summary.id),
+    title: summary.name || '',
+    description: summary.description || '',
+    options,
+    startTime,
+    endTime,
+    creator: '',
+    votingType: Number(summary.voteType),
+    numOptions: Number(summary.numOptions),
+    totalVotes: Number(summary.totalVoters),
+    isActive: summary.status === 1 || (now >= startTime && now <= endTime),
+    source,
+    status: summary.status,
+    resultsAvailable: summary.resultsAvailable,
+  };
+}
+
+/**
+ * Get all votings using optimized batch read - single RPC call per contract
+ * This is MUCH faster than the original getAllVotings which made multiple calls per voting
+ */
+export async function getAllVotingsOptimized(): Promise<VotingData[]> {
+  const list: VotingData[] = [];
+
+  // Fetch from FHEBallot using optimized batch function
+  try {
+    const ballot = getReadBallot();
+    try {
+      const [summaries, allOptions] = await ballot.getAllVotingsFull();
+      for (let i = 0; i < summaries.length; i++) {
+        const summary = summaries[i];
+        const options = allOptions[i] || [];
+        // Filter out empty votings
+        if (summary.name && summary.name.length > 0) {
+          list.push(summaryToVotingData(summary, options, 'ballot'));
+        }
+      }
+    } catch (e) {
+      // Fallback to legacy method if batch function not available
+      console.warn('Batch read not available for ballot, falling back to legacy:', e);
+      const ballotCount = Number(await (ballot as any).votingCounter());
+      for (let i = 0; i < ballotCount; i++) {
+        try {
+          list.push(await getVotingFrom('ballot', i));
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // Fetch from FHEQuadraticVoting using optimized batch function
+  try {
+    const quad = getReadQuadratic();
+    try {
+      const [summaries, allOptions] = await quad.getAllVotingsFull();
+      for (let i = 0; i < summaries.length; i++) {
+        const summary = summaries[i];
+        const options = allOptions[i] || [];
+        if (summary.name && summary.name.length > 0) {
+          list.push(summaryToVotingData(summary, options, 'quadratic'));
+        }
+      }
+    } catch (e) {
+      console.warn('Batch read not available for quadratic, falling back to legacy:', e);
+      const quadCount = Number(await (quad as any).votingCounter());
+      for (let i = 0; i < quadCount; i++) {
+        try {
+          list.push(await getVotingFrom('quadratic', i));
+        } catch {}
+      }
+    }
+  } catch {}
+
+  return list;
+}
+
+/**
+ * Get user vote status for all votings in batch - single RPC call per contract
+ */
+export async function getAllUserVoteStatusOptimized(
+  userAddress: string
+): Promise<Map<string, boolean>> {
+  const statusMap = new Map<string, boolean>();
+
+  try {
+    const ballot = getReadBallot();
+    try {
+      const hasVotedArray = await ballot.getAllUserVoteStatus(userAddress);
+      for (let i = 0; i < hasVotedArray.length; i++) {
+        statusMap.set(`ballot-${i}`, hasVotedArray[i]);
+      }
+    } catch (e) {
+      console.warn('Batch vote status not available for ballot:', e);
+    }
+  } catch {}
+
+  try {
+    const quad = getReadQuadratic();
+    try {
+      const hasVotedArray = await quad.getAllUserVoteStatus(userAddress);
+      for (let i = 0; i < hasVotedArray.length; i++) {
+        statusMap.set(`quadratic-${i}`, hasVotedArray[i]);
+      }
+    } catch (e) {
+      console.warn('Batch vote status not available for quadratic:', e);
+    }
+  } catch {}
+
+  return statusMap;
+}
+
+/**
+ * Combined optimized fetch - get all votings AND user vote status in minimal RPC calls
+ * This replaces the slow pattern of: getAllVotings() + loop of hasUserVotedFrom()
+ */
+export async function getAllVotingsWithUserStatus(
+  userAddress?: string
+): Promise<{ votings: VotingData[]; userVoteStatus: Map<string, boolean> }> {
+  // Fetch votings and user status in parallel
+  const [votings, userVoteStatus] = await Promise.all([
+    getAllVotingsOptimized(),
+    userAddress ? getAllUserVoteStatusOptimized(userAddress) : Promise.resolve(new Map<string, boolean>()),
+  ]);
+
+  return { votings, userVoteStatus };
+}
+
+/**
+ * Get voting full data in a single call (summary + options)
+ */
+export async function getVotingFullOptimized(
+  source: 'ballot' | 'quadratic',
+  votingId: number
+): Promise<VotingData> {
+  const c = source === 'quadratic' ? getReadQuadratic() : getReadBallot();
+  const [summary, options] = await c.getVotingFull(votingId);
+  return summaryToVotingData(summary, options, source);
+}
+
+/**
+ * Batch check vote status for specific votings
+ */
+export async function batchHasVotedFrom(
+  source: 'ballot' | 'quadratic',
+  votingIds: number[],
+  userAddress: string
+): Promise<boolean[]> {
+  const c = source === 'quadratic' ? getReadQuadratic() : getReadBallot();
+  try {
+    const result = await c.batchHasVoted(votingIds, userAddress);
+    return result.map((v: any) => Boolean(v));
+  } catch {
+    // Fallback to individual calls if batch not available
+    const results: boolean[] = [];
+    for (const id of votingIds) {
+      try {
+        const voted = await c.hasVoted(id, userAddress);
+        results.push(Boolean(voted));
+      } catch {
+        results.push(false);
+      }
+    }
+    return results;
+  }
+}
+
+/**
+ * Batch get results for multiple votings
+ */
+export async function batchGetResultsFrom(
+  source: 'ballot' | 'quadratic',
+  votingIds: number[]
+): Promise<number[][]> {
+  const c = source === 'quadratic' ? getReadQuadratic() : getReadBallot();
+  try {
+    const results = await c.batchGetResults(votingIds);
+    return results.map((r: any[]) => r.map((v: any) => Number(v)));
+  } catch {
+    // Fallback
+    const allResults: number[][] = [];
+    for (const id of votingIds) {
+      try {
+        const r = await c.getDecryptedResults(id);
+        allResults.push(r.map((v: any) => Number(v)));
+      } catch {
+        allResults.push([]);
+      }
+    }
+    return allResults;
   }
 }
