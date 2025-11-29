@@ -31,7 +31,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getAllVotings, getStatusFrom, requestDecryptionFrom } from '../services/contractService';
+import { getAllVotingsWithUserStatus, requestDecryptionFrom } from '../services/contractService';
 import { Voting, VotingStatus, VotingType } from '../types';
 import { StatCard } from '../components/StatCard';
 import dayjs from 'dayjs';
@@ -48,15 +48,18 @@ export const AdminDashboard: React.FC = () => {
   const { data: votings, isLoading, refetch } = useQuery({
     queryKey: ['admin-votings-onchain'],
     queryFn: async () => {
-      const list = await getAllVotings();
+      // Use optimized batch reading - much faster than individual calls
+      const { votings: list } = await getAllVotingsWithUserStatus();
       const typeMap: Record<number, VotingType> = { 0: VotingType.SINGLE_CHOICE, 1: VotingType.MULTIPLE_CHOICE, 2: VotingType.WEIGHTED, 3: VotingType.QUADRATIC };
-      // Build UI Voting model
-      const out = [] as any[];
-      for (const v of list) {
+
+      // Build UI Voting model - status is already included from batch read
+      return list.map((v) => {
         const source = (v as any).source || 'ballot';
-        const statusNum = await getStatusFrom(source as any, v.id);
+        // Use status from batch response (already computed)
+        const statusNum = (v as any).status ?? 0;
         const status: VotingStatus = statusNum === 1 ? VotingStatus.ACTIVE : statusNum === 2 ? VotingStatus.ENDED : statusNum === 3 ? VotingStatus.TALLIED : VotingStatus.PENDING;
-        out.push({
+
+        return {
           id: String(v.id),
           title: v.title,
           description: v.description,
@@ -71,9 +74,8 @@ export const AdminDashboard: React.FC = () => {
           createdAt: '',
           updatedAt: '',
           source,
-        });
-      }
-      return out;
+        };
+      });
     },
   });
 

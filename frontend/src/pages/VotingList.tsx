@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Row, Col, Space, Typography, Input, Select, Tabs, Empty, Spin, Badge, Button, message } from 'antd';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Layout, Row, Col, Space, Typography, Input, Select, Tabs, Badge, Button, Spin } from 'antd';
 import { SearchOutlined, FilterOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { VotingCard } from '../components/VotingCard';
-import { getAllVotings, VotingData, hasUserVotedFrom, getStatusFrom } from '../services/contractService';
+import { useVotingContext } from '../context/VotingContext';
 import { VotingStatus, VotingType } from '../types';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWallet } from '../hooks/useWallet';
+import { NoVotingsEmpty, NotConnectedEmpty, NoMatchingEmpty } from '../components/common/EmptyState';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -13,86 +14,23 @@ const { Search } = Input;
 
 export const VotingList: React.FC = () => {
   const navigate = useNavigate();
-  const { wallet, isConnected } = useWallet();
+  const { isConnected } = useWallet();
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<VotingStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<VotingType | 'all'>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'ballot' | 'quadratic'>('all');
-  const [votings, setVotings] = useState<VotingData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [userVotes, setUserVotes] = useState<{ [key: number]: boolean }>({});
-  const [statusById, setStatusById] = useState<{ [key: number]: VotingStatus }>({});
 
-  const fetchVotings = async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    else setRefreshing(true);
-    
-    try {
-      if (isConnected && wallet) {
-        // Try to fetch from contract
-        try {
-          const contractVotings = await getAllVotings();
-          setVotings(contractVotings);
-
-          // Fetch on-chain status for accurate tab categorization
-          const statusMap: { [key: number]: VotingStatus } = {};
-          for (const v of contractVotings) {
-            try {
-              const s = await getStatusFrom((v as any).source || 'ballot', v.id);
-              statusMap[v.id] = s === 1
-                ? VotingStatus.ACTIVE
-                : s === 2
-                ? VotingStatus.ENDED
-                : s === 3
-                ? VotingStatus.TALLIED
-                : VotingStatus.PENDING; // 0 or unknown
-            } catch {
-              // fallback to time-based
-              const now = Date.now() / 1000;
-              statusMap[v.id] = now < v.startTime
-                ? VotingStatus.PENDING
-                : now <= v.endTime
-                ? VotingStatus.ACTIVE
-                : VotingStatus.ENDED;
-            }
-          }
-          setStatusById(statusMap);
-          
-          // Check if user has voted
-          if (wallet?.address && contractVotings.length > 0) {
-            const voteStatuses: { [key: number]: boolean } = {};
-            for (const voting of contractVotings) {
-              try {
-                voteStatuses[voting.id] = await hasUserVotedFrom((voting as any).source || 'ballot', voting.id, wallet.address);
-              } catch {
-                voteStatuses[voting.id] = false;
-              }
-            }
-            setUserVotes(voteStatuses);
-          }
-        } catch (error: any) {
-          // If contract is not initialized or no votings, show empty state
-          console.log('No votings found or contract not initialized');
-          setVotings([]);
-        }
-      } else {
-        setVotings([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch votings:', error);
-      // Don't show error message for expected cases
-      setVotings([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchVotings();
-  }, [isConnected]);
+  // Use global VotingContext instead of local state
+  const {
+    votings,
+    userVoteStatus,
+    isLoading,
+    isRefetching,
+    refresh,
+    getVotingStatus,
+    hasUserVoted,
+  } = useVotingContext();
 
   // Initialize status filter from query string (?tab=active|pending|ended|tallied)
   useEffect(() => {
@@ -109,15 +47,6 @@ export const VotingList: React.FC = () => {
     }
   }, [location.search]);
 
-  const getVotingStatus = (voting: VotingData): VotingStatus => {
-    return statusById[voting.id] || (() => {
-      const now = Date.now() / 1000;
-      if (now < voting.startTime) return VotingStatus.PENDING;
-      if (now <= voting.endTime) return VotingStatus.ACTIVE;
-      return VotingStatus.ENDED;
-    })();
-  };
-
   const typeMap: Record<string, number> = {
     [VotingType.SINGLE_CHOICE]: 0,
     [VotingType.MULTIPLE_CHOICE]: 1,
@@ -125,25 +54,27 @@ export const VotingList: React.FC = () => {
     [VotingType.QUADRATIC]: 3,
   };
 
-  const filteredVotings = votings.filter((voting) => {
-    const matchesSearch = voting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          voting.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const votingStatus = getVotingStatus(voting);
-    const matchesStatus = statusFilter === 'all' || votingStatus === statusFilter;
-    const selectedTypeNum = typeFilter === 'all' ? null : typeMap[typeFilter as string];
-    const matchesType = typeFilter === 'all' || voting.votingType === selectedTypeNum;
-    const src = (voting as any).source || 'ballot';
-    const matchesSource = sourceFilter === 'all' || src === sourceFilter;
-    return matchesSearch && matchesStatus && matchesType && matchesSource;
-  });
+  const filteredVotings = useMemo(() => {
+    return votings.filter((voting) => {
+      const matchesSearch = voting.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            voting.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const votingStatus = getVotingStatus(voting);
+      const matchesStatus = statusFilter === 'all' || votingStatus === statusFilter;
+      const selectedTypeNum = typeFilter === 'all' ? null : typeMap[typeFilter as string];
+      const matchesType = typeFilter === 'all' || voting.votingType === selectedTypeNum;
+      const src = (voting as any).source || 'ballot';
+      const matchesSource = sourceFilter === 'all' || src === sourceFilter;
+      return matchesSearch && matchesStatus && matchesType && matchesSource;
+    });
+  }, [votings, searchTerm, statusFilter, typeFilter, sourceFilter, getVotingStatus]);
 
-  const statusCounts = {
+  const statusCounts = useMemo(() => ({
     all: votings.length,
     [VotingStatus.ACTIVE]: votings.filter(v => getVotingStatus(v) === VotingStatus.ACTIVE).length,
     [VotingStatus.PENDING]: votings.filter(v => getVotingStatus(v) === VotingStatus.PENDING).length,
     [VotingStatus.ENDED]: votings.filter(v => getVotingStatus(v) === VotingStatus.ENDED).length,
     [VotingStatus.TALLIED]: votings.filter(v => getVotingStatus(v) === VotingStatus.TALLIED).length,
-  };
+  }), [votings, getVotingStatus]);
 
   const tabItems = [
     {
@@ -192,6 +123,16 @@ export const VotingList: React.FC = () => {
       ),
     },
   ];
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setTypeFilter('all');
+    setSourceFilter('all');
+    navigate('/votings');
+  };
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || typeFilter !== 'all' || sourceFilter !== 'all';
 
   return (
     <Content style={{ padding: 24, minHeight: 'calc(100vh - 64px)' }}>
@@ -271,9 +212,9 @@ export const VotingList: React.FC = () => {
         <Row justify="end" style={{ marginTop: -48, marginBottom: 24 }}>
           <Space>
             <Button
-              icon={<ReloadOutlined spin={refreshing} />}
-              onClick={() => fetchVotings(false)}
-              loading={refreshing}
+              icon={<ReloadOutlined spin={isRefetching} />}
+              onClick={() => refresh()}
+              loading={isRefetching}
             >
               Refresh
             </Button>
@@ -288,16 +229,19 @@ export const VotingList: React.FC = () => {
         </Row>
 
         {/* Voting Cards */}
-        {loading ? (
+        {isLoading ? (
           <div style={{ textAlign: 'center', padding: 48 }}>
             <Spin size="large" />
           </div>
+        ) : !isConnected ? (
+          <NotConnectedEmpty onConnect={() => window.location.reload()} />
         ) : filteredVotings.length > 0 ? (
           <Row gutter={[16, 16]}>
             {filteredVotings.map((voting) => {
               const votingStatus = getVotingStatus(voting);
+              const source = (voting as any).source || 'ballot';
               return (
-                <Col xs={24} lg={12} xl={8} key={voting.id}>
+                <Col xs={24} lg={12} xl={8} key={`${source}-${voting.id}`}>
                   <VotingCard
                     id={voting.id}
                     title={voting.title}
@@ -312,40 +256,19 @@ export const VotingList: React.FC = () => {
                         ? 'pending'
                         : 'ended'
                     }
-                    source={(voting as any).source || 'ballot'}
-                    onVote={() => navigate(`/vote/${(voting as any).source || 'ballot'}/${voting.id}`)}
-                    onViewResults={() => navigate(`/results/${(voting as any).source || 'ballot'}/${voting.id}`)}
-                    hasVoted={userVotes[voting.id] || false}
+                    source={source}
+                    onVote={() => navigate(`/vote/${source}/${voting.id}`)}
+                    onViewResults={() => navigate(`/results/${source}/${voting.id}`)}
+                    hasVoted={hasUserVoted(source, voting.id)}
                   />
                 </Col>
               );
             })}
           </Row>
+        ) : hasActiveFilters ? (
+          <NoMatchingEmpty onClearFilters={clearFilters} />
         ) : (
-          <Empty
-            description={
-              !isConnected
-                ? 'Please connect your wallet to view votings'
-                : searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-                ? 'No votings found matching your filters'
-                : 'No votings available yet'
-            }
-            style={{ padding: 48 }}
-          >
-            {!isConnected ? (
-              <Button type="primary" onClick={() => window.location.reload()}>
-                Connect Wallet
-              </Button>
-            ) : (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/admin/create')}
-              >
-                Create First Voting
-              </Button>
-            )}
-          </Empty>
+          <NoVotingsEmpty onCreateVoting={() => navigate('/admin/create')} />
         )}
       </Space>
     </Content>

@@ -227,7 +227,7 @@ export const Results: React.FC = () => {
         {isDecrypted ? (
           <Alert
             message="Results Decrypted"
-            description={`These results were collectively decrypted on ${new Date(mockResults.decryptedAt!).toLocaleString()}`}
+            description="Final voting results have been decrypted and are now available."
             type="success"
             showIcon
             icon={<CheckCircleOutlined />}
