@@ -16,10 +16,11 @@ const { Sider } = Layout;
 
 interface SideNavProps {
   collapsed: boolean;
+  onCollapse: (collapsed: boolean) => void;
   isAdmin: boolean;
 }
 
-export const SideNav: React.FC<SideNavProps> = ({ collapsed, isAdmin }) => {
+export const SideNav: React.FC<SideNavProps> = ({ collapsed, onCollapse, isAdmin }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -110,9 +111,12 @@ export const SideNav: React.FC<SideNavProps> = ({ collapsed, isAdmin }) => {
 
   return (
     <Sider
+      collapsible
       collapsed={collapsed}
+      onCollapse={onCollapse}
       width={240}
       collapsedWidth={80}
+      trigger={null}
       style={{
         borderRight: '1px solid #E5E7EB',
         overflow: 'auto',

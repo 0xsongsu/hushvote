@@ -7,6 +7,7 @@ import { SideNav } from './SideNav';
 import { lightTheme, darkTheme } from '../styles/theme';
 import { useWallet } from '../hooks/useWallet';
 import { initializeContract } from '../services/contractService';
+import { VotingProvider } from '../context/VotingContext';
 
 // Pages
 import { Dashboard } from '../pages/Dashboard';
@@ -68,40 +69,42 @@ const DAppRoutes: React.FC = () => {
 
   return (
     <ConfigProvider theme={isDarkMode ? darkTheme : lightTheme}>
-      <Layout style={{ minHeight: '100vh' }}>
-        <AppHeader
-          wallet={wallet}
-          isDarkMode={isDarkMode}
-          onThemeToggle={handleThemeToggle}
-          onConnect={connect}
-          onDisconnect={disconnect}
-          isAdmin={isAdmin}
-        />
-        <Layout>
-          <SideNav
-            collapsed={sidebarCollapsed}
-            onCollapse={setSidebarCollapsed}
+      <VotingProvider userAddress={wallet?.address}>
+        <Layout style={{ minHeight: '100vh' }}>
+          <AppHeader
+            wallet={wallet}
+            isDarkMode={isDarkMode}
+            onThemeToggle={handleThemeToggle}
+            onConnect={connect}
+            onDisconnect={disconnect}
             isAdmin={isAdmin}
           />
-          <Content style={{
-            marginLeft: sidebarCollapsed ? 80 : 200,
-            padding: 24,
-            transition: 'all 0.2s',
-            background: isDarkMode ? '#0B0F14' : '#F9FAFB',
-          }}>
-            <Routes>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/votings" element={<VotingList />} />
-              <Route path="/vote/:id" element={<VotePage />} />
-              <Route path="/vote/:source/:id" element={<VotePage />} />
-              <Route path="/results/:id" element={<Results />} />
-              <Route path="/results/:source/:id" element={<Results />} />
-              <Route path="/admin/create" element={<CreateVoting />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            </Routes>
-          </Content>
+          <Layout>
+            <SideNav
+              collapsed={sidebarCollapsed}
+              onCollapse={setSidebarCollapsed}
+              isAdmin={isAdmin}
+            />
+            <Content style={{
+              marginLeft: sidebarCollapsed ? 80 : 200,
+              padding: 24,
+              transition: 'all 0.2s',
+              background: isDarkMode ? '#0B0F14' : '#F9FAFB',
+            }}>
+              <Routes>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/votings" element={<VotingList />} />
+                <Route path="/vote/:id" element={<VotePage />} />
+                <Route path="/vote/:source/:id" element={<VotePage />} />
+                <Route path="/results/:id" element={<Results />} />
+                <Route path="/results/:source/:id" element={<Results />} />
+                <Route path="/admin/create" element={<CreateVoting />} />
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              </Routes>
+            </Content>
+          </Layout>
         </Layout>
-      </Layout>
+      </VotingProvider>
     </ConfigProvider>
   );
 };
