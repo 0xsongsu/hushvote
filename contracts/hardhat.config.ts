@@ -1,4 +1,4 @@
-// import "@fhevm/hardhat-plugin"; // Removed due to version incompatibility
+import "@fhevm/hardhat-plugin";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.28",
+        version: "0.8.24",
         settings: {
           optimizer: {
             enabled: true,
@@ -108,15 +108,8 @@ const config: HardhatUserConfig = {
   },
   mocha: {
     timeout: 120000 // 2 minutes timeout for FHE operations
-  },
-  // FHE-specific configuration for the plugin
-  fhevm: {
-    networkUrl: process.env.ZAMA_RPC_URL || "https://devnet.zama.ai",
-    gatewayUrl: process.env.ZAMA_GATEWAY_URL || "https://gateway.devnet.zama.ai",
-    aclAddress: process.env.ACL_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000001",
-    tfheExecutorAddress: process.env.TFHE_EXECUTOR_ADDRESS || "0x0000000000000000000000000000000000000002",
-    kmsVerifierAddress: process.env.KMS_VERIFIER_ADDRESS || "0x0000000000000000000000000000000000000003"
   }
+  // FHE 0.9.1 uses ZamaEthereumConfig which auto-resolves addresses by chainId
 };
 
 export default config;

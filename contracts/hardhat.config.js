@@ -3,6 +3,7 @@ require("@openzeppelin/hardhat-upgrades");
 require("hardhat-contract-sizer");
 require("hardhat-gas-reporter");
 require("solidity-coverage");
+require("@fhevm/hardhat-plugin");
 require("dotenv").config();
 
 // Tasks
