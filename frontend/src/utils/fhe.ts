@@ -1,31 +1,55 @@
 // FHE utilities using ZAMA SDK from CDN (compatible with Sepolia)
-// Based on working implementation from Zamabelief project
+// Updated for fhEVM 0.9.1 - uses CDN-loaded SDK approach
 
-import { ethers, getAddress, hexlify } from 'ethers';
+import { getAddress, hexlify } from 'ethers';
+import { CONTRACT_ADDRESSES, DEFAULT_CHAIN } from '../config/contracts';
+
+declare global {
+  interface Window {
+    RelayerSDK?: any;
+    relayerSDK?: any;
+    ethereum?: any;
+    okxwallet?: any;
+  }
+}
 
 let fheInstance: any = null;
 
+const getSDK = () => {
+  if (typeof window === "undefined") {
+    throw new Error("FHE SDK requires a browser environment");
+  }
+  const sdk = window.RelayerSDK || window.relayerSDK;
+  if (!sdk) {
+    throw new Error("Relayer SDK not loaded. Ensure the CDN script tag is present in index.html.");
+  }
+  return sdk;
+};
+
 // Initialize FHE instance using CDN-loaded SDK with SepoliaConfig
-export async function initializeFHE(): Promise<any> {
+export async function initializeFHE(provider?: any): Promise<any> {
   if (fheInstance) return fheInstance;
 
-  // Check if ethereum is available
-  if (typeof window === 'undefined' || !window.ethereum) {
-    throw new Error('Ethereum provider not found. Please install MetaMask or connect a wallet.');
+  if (typeof window === "undefined") {
+    throw new Error("FHE SDK requires a browser environment");
+  }
+
+  const ethereumProvider =
+    provider || window.ethereum || window.okxwallet?.provider || window.okxwallet;
+  if (!ethereumProvider) {
+    throw new Error("No wallet provider detected. Connect a wallet first.");
   }
 
   try {
-    // Load SDK from CDN (0.2.0 - stable version)
-    console.log('Loading ZAMA SDK from CDN...');
-    const sdk: any = await import('https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.js');
-
-    const { initSDK, createInstance, SepoliaConfig } = sdk as any;
+    console.log('[FHE] Loading ZAMA SDK from CDN...');
+    const sdk = getSDK();
+    const { initSDK, createInstance, SepoliaConfig } = sdk;
 
     // Initialize WASM
     await initSDK();
 
-    // Create instance with SepoliaConfig and MetaMask provider
-    const config = { ...SepoliaConfig, network: window.ethereum };
+    // Create instance with SepoliaConfig and wallet provider
+    const config = { ...SepoliaConfig, network: ethereumProvider };
     fheInstance = await createInstance(config);
 
     console.log('✅ FHE instance initialized successfully');
@@ -145,3 +169,49 @@ export async function reencryptVote(encryptedVote: string): Promise<string> {
 export function generateProof(_encryptedVote: string, _voter: string): string {
   return '0x';
 }
+
+/**
+ * Check if FHE SDK is loaded and ready
+ */
+export const isFHEReady = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return !!(window.RelayerSDK || window.relayerSDK);
+};
+
+/**
+ * Check if FHE instance is initialized
+ */
+export const isFheReady = (): boolean => {
+  return fheInstance !== null;
+};
+
+export const isSDKLoaded = isFHEReady;
+
+/**
+ * Wait for FHE SDK to be loaded (with timeout)
+ */
+export const waitForFHE = async (timeoutMs: number = 10000): Promise<boolean> => {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    if (isFHEReady()) {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  return false;
+};
+
+/**
+ * Get FHE status for debugging
+ */
+export const getFHEStatus = (): {
+  sdkLoaded: boolean;
+  instanceReady: boolean;
+} => {
+  return {
+    sdkLoaded: isFHEReady(),
+    instanceReady: fheInstance !== null,
+  };
+};
