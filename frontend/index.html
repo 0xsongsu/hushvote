@@ -5,7 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/icon_monogram_hv.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="HushVote - Privacy-first voting platform powered by Zama's Fully Homomorphic Encryption" />
+    <!-- Cross-Origin Isolation for SharedArrayBuffer (required by FHE WASM) -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
     <title>HushVote - Privacy-First Voting with FHE</title>
+    <!-- Zama FHE Relayer SDK (fhEVM 0.9.1 compatible) -->
+    <script src="https://cdn.zama.org/relayer-sdk-js/0.3.0-5/relayer-sdk-js.umd.cjs" defer crossorigin="anonymous"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -5,6 +5,15 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    }
+  ],
   "env": {
     "VITE_CONTRACT_ADDRESS": "0xa7D3cdfDe2E3A6bB7c68bC4Ffe747f00828d14b2",
     "VITE_CHAIN_ID": "11155111",
