@@ -1,575 +1,865 @@
-# HushVote - Privacy-Preserving Voting System
+# HushVote - Privacy-Preserving Voting Platform
 
 <div align="center">
   <img src="./lockup_monogram_hv.svg" alt="HushVote Logo" width="300"/>
-  <h3>A decentralized voting platform leveraging Fully Homomorphic Encryption (FHE) for complete voter privacy</h3>
+
+  <h3>Decentralized Voting with Fully Homomorphic Encryption (FHE)</h3>
+  <p><em>Vote in complete privacy. Verify with absolute certainty.</em></p>
 
   <p>
     <a href="https://hushvote.vercel.app" target="_blank">
-      <img src="https://img.shields.io/badge/🚀_Live_Demo-hushvote.vercel.app-6366f1?style=for-the-badge" alt="Live Demo"/>
+      <img src="https://img.shields.io/badge/Live_Demo-hushvote.vercel.app-6366f1?style=for-the-badge&logo=vercel" alt="Live Demo"/>
     </a>
-    <a href="https://sepolia.etherscan.io" target="_blank">
-      <img src="https://img.shields.io/badge/Network-Sepolia_Testnet-orange?style=for-the-badge" alt="Network"/>
-    </a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Solidity-0.8.24-363636?style=flat-square&logo=solidity" alt="Solidity"/>
+    <img src="https://img.shields.io/badge/fhEVM-0.9.1-00D4AA?style=flat-square" alt="fhEVM"/>
+    <img src="https://img.shields.io/badge/React-18.2.0-61DAFB?style=flat-square&logo=react" alt="React"/>
+    <img src="https://img.shields.io/badge/TypeScript-5.2-3178C6?style=flat-square&logo=typescript" alt="TypeScript"/>
+    <img src="https://img.shields.io/badge/Network-Sepolia-orange?style=flat-square&logo=ethereum" alt="Network"/>
   </p>
 </div>
 
+---
+
 ## Table of Contents
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture](#architecture)
+
+- [Introduction](#introduction)
+- [Why FHE for Voting?](#why-fhe-for-voting)
+- [Technical Architecture](#technical-architecture)
+- [Smart Contract Design](#smart-contract-design)
+- [FHE Implementation Details](#fhe-implementation-details)
+- [Frontend Architecture](#frontend-architecture)
+- [Deployed Contracts](#deployed-contracts)
 - [Technology Stack](#technology-stack)
 - [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
+- [Getting Started](#getting-started)
 - [Configuration](#configuration)
-- [Deployment](#deployment)
-- [Smart Contract Addresses](#smart-contract-addresses)
-- [Usage](#usage)
+- [Deployment Guide](#deployment-guide)
+- [Security Considerations](#security-considerations)
 - [API Reference](#api-reference)
-- [Security](#security)
-- [Testing](#testing)
-- [Contributing](#contributing)
 - [License](#license)
 
-## Overview
+---
 
-HushVote is a revolutionary decentralized voting system that ensures complete voter privacy while maintaining transparency and verifiability. Built on Zama's Fully Homomorphic Encryption (FHE) technology, HushVote allows votes to be counted without ever decrypting individual ballots, providing unprecedented privacy in blockchain-based voting.
+## Introduction
 
-### Key Innovation
+HushVote is a next-generation decentralized voting platform that leverages **Fully Homomorphic Encryption (FHE)** to achieve true ballot privacy on the blockchain. Unlike traditional blockchain voting systems where votes are publicly visible, HushVote ensures that individual votes remain encrypted throughout the entire lifecycle - from submission through tallying to result verification.
 
-Unlike traditional blockchain voting systems where votes are publicly visible, HushVote:
-- **Encrypts votes end-to-end**: Votes remain encrypted from submission through tallying
-- **Performs homomorphic computation**: Vote counting happens on encrypted data
-- **Ensures verifiability**: Results can be verified without revealing individual votes
-- **Prevents vote buying**: No one can prove how they voted, even to themselves
+### The Privacy Problem in Blockchain Voting
 
-## Features
+Traditional blockchain voting faces a fundamental paradox:
+- **Transparency** is blockchain's core value proposition
+- **Privacy** is essential for free and fair voting
 
-### Core Voting Features
-- **Private Ballot Voting**: Standard encrypted voting with multiple choice options
-- **Weighted Voting**: Support for votes with different weights based on stakeholder power
-- **Quadratic Voting**: Implementation of quadratic voting for more nuanced preference expression
-- **Time-Bounded Voting**: Automatic start and end times with on-chain enforcement
-- **Quorum Requirements**: Configurable minimum participation thresholds
-- **Whitelist Support**: Optional voter eligibility restrictions
+Most blockchain voting solutions compromise by either:
+1. Making votes fully transparent (destroying ballot secrecy)
+2. Using centralized mixers or trusted third parties (introducing trust assumptions)
+3. Relying on complex ZK circuits that don't support aggregation (limiting functionality)
 
-### Privacy & Security Features
-- **FHE-based Encryption**: Utilizing Zama's fhEVM for homomorphic operations
-- **Zero-Knowledge Proofs**: Vote validity verification without revealing content
-- **Encrypted Tallying**: Vote counting performed on encrypted data
-- **Secure Key Management**: Integration with Zama's KMS for decryption control
-- **Tamper-Proof Results**: Immutable on-chain storage of voting outcomes
+### HushVote's Solution
 
-### User Experience Features
-- **Web3 Wallet Integration**: Seamless connection via Privy SDK
-- **Real-Time Updates**: Live voting statistics and participation metrics
-- **Mobile Responsive**: Full functionality across all devices
-- **Intuitive Dashboard**: Clean, modern interface following Linear design principles
-- **Multi-Language Support**: (Planned) Internationalization for global accessibility
-
-## Architecture
-
-### System Architecture
+HushVote resolves this paradox using **Fully Homomorphic Encryption**:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         Frontend (React)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Voting UI  │  │  Dashboard   │  │    Admin     │      │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         └──────────────────┴──────────────────┘             │
-│                            │                                 │
-│                     ┌──────▼───────┐                        │
-│                     │   Services   │                        │
-│                     │  (FHE Utils) │                        │
-│                     └──────┬───────┘                        │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-                    ┌─────────▼──────────┐
-                    │    Smart Contracts │
-                    │     (Solidity)      │
-                    ├────────────────────┤
-                    │    FHEBallot.sol   │
-                    │ FHEQuadraticVoting │
-                    │  FHEVotingBase.sol │
-                    └─────────┬──────────┘
-                              │
-                    ┌─────────▼──────────┐
-                    │   Zama fhEVM Layer  │
-                    │  ┌──────────────┐  │
-                    │  │ Coprocessor  │  │
-                    │  ├──────────────┤  │
-                    │  │     KMS      │  │
-                    │  ├──────────────┤  │
-                    │  │   Oracle     │  │
-                    │  └──────────────┘  │
-                    └────────────────────┘
+Traditional Voting:     vote → encrypt → decrypt → tally
+HushVote:              vote → encrypt → tally(encrypted) → decrypt(result only)
 ```
 
-### Contract Architecture
+With FHE, mathematical operations can be performed directly on encrypted data. This means:
+- Individual votes **never need to be decrypted** for counting
+- Only the **final aggregate result** is decrypted
+- **Complete ballot secrecy** is maintained while achieving **full verifiability**
 
-The smart contract system follows a modular design:
+---
 
-1. **FHEVotingBase.sol**: Base contract with common functionality
-   - Access control and pausability
-   - Public key management
-   - Proof verification framework
+## Why FHE for Voting?
 
-2. **IFHEVoting.sol**: Interface definitions
-   - Standard voting methods
-   - Event definitions
-   - Type declarations
+### Comparison with Other Privacy Solutions
 
-3. **FHEBallot.sol**: Main voting implementation
-   - Standard and weighted voting logic
-   - Encrypted vote tallying
-   - Result decryption management
+| Feature | Transparent Voting | Commit-Reveal | ZK-SNARKs | MPC | **FHE (HushVote)** |
+|---------|-------------------|---------------|-----------|-----|-------------------|
+| Ballot Privacy | None | Temporal | Full | Full | **Full** |
+| On-chain Verification | Full | Full | Full | Partial | **Full** |
+| Aggregation Support | N/A | Manual | Limited | Complex | **Native** |
+| Trusted Setup | No | No | Yes* | No | **No** |
+| Computational Cost | Low | Low | High | Very High | **Medium** |
+| Implementation Complexity | Low | Medium | Very High | Very High | **Medium** |
 
-4. **FHEQuadraticVoting.sol**: Quadratic voting extension
-   - Credit-based voting system
-   - Quadratic cost calculation
-   - Multi-option vote distribution
+*Some ZK systems like STARKs don't require trusted setup but have other tradeoffs.
+
+### Key Advantages of FHE
+
+1. **Native Aggregation**: FHE naturally supports addition and multiplication on encrypted values, perfect for vote tallying
+2. **No Trusted Setup**: Unlike ZK-SNARKs with ceremony requirements, fhEVM is ready to use
+3. **Composability**: Encrypted values can be passed between contracts and combined
+4. **Verifiability**: All operations are performed on-chain and can be audited
+
+---
+
+## Technical Architecture
+
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT LAYER                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                     React Frontend (Vite)                        │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │   │
+│  │  │  Dashboard   │  │  VotePage    │  │  CreateVoting        │  │   │
+│  │  │  - All votes │  │  - Cast vote │  │  - Configure voting  │  │   │
+│  │  │  - Stats     │  │  - View opts │  │  - Deploy on-chain   │  │   │
+│  │  └──────────────┘  └──────────────┘  └──────────────────────┘  │   │
+│  │                            │                                     │   │
+│  │  ┌─────────────────────────▼─────────────────────────────────┐  │   │
+│  │  │                    VotingContext                           │  │   │
+│  │  │  - Global state management                                 │  │   │
+│  │  │  - Batch RPC optimization (N*3 → 4 calls)                 │  │   │
+│  │  │  - React Query caching                                     │  │   │
+│  │  └─────────────────────────┬─────────────────────────────────┘  │   │
+│  │                            │                                     │   │
+│  │  ┌─────────────────────────▼─────────────────────────────────┐  │   │
+│  │  │                 Web3 Integration Layer                     │  │   │
+│  │  │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  │  │   │
+│  │  │  │ Privy SDK     │  │ Ethers.js 6   │  │ FHE Utils     │  │  │   │
+│  │  │  │ - Auth        │  │ - Contracts   │  │ - Encryption  │  │  │   │
+│  │  │  │ - Wallets     │  │ - Signing     │  │ - Proofs      │  │  │   │
+│  │  │  └───────────────┘  └───────────────┘  └───────────────┘  │  │   │
+│  │  └───────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ JSON-RPC
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         BLOCKCHAIN LAYER                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    Smart Contracts (Solidity 0.8.24)             │   │
+│  │                                                                   │   │
+│  │   ┌─────────────────────────────────────────────────────────┐   │   │
+│  │   │                    IFHEVoting.sol                        │   │   │
+│  │   │   Interface defining voting standards & types            │   │   │
+│  │   │   - VotingConfig, VoteOption, VoterInfo structs         │   │   │
+│  │   │   - externalEuint32 for encrypted inputs (0.9.1)        │   │   │
+│  │   └─────────────────────────────────────────────────────────┘   │   │
+│  │                              ▲                                   │   │
+│  │                              │ implements                        │   │
+│  │   ┌─────────────────────────┴─────────────────────────────┐     │   │
+│  │   │                  FHEVotingBase.sol                      │     │   │
+│  │   │   - Ownable, Pausable, ReentrancyGuard                 │     │   │
+│  │   │   - Common FHE utilities and encryption helpers         │     │   │
+│  │   │   - Access control and configuration management         │     │   │
+│  │   └─────────────────────────┬─────────────────────────────┘     │   │
+│  │                              │ extends                           │   │
+│  │          ┌───────────────────┴───────────────────┐               │   │
+│  │          ▼                                       ▼               │   │
+│  │   ┌─────────────────┐                   ┌─────────────────┐     │   │
+│  │   │  FHEBallot.sol  │                   │FHEQuadraticVoting│     │   │
+│  │   │                 │                   │                  │     │   │
+│  │   │ - SingleChoice  │                   │ - Credit system  │     │   │
+│  │   │ - MultiChoice   │                   │ - Quadratic cost │     │   │
+│  │   │ - Weighted      │                   │ - Multi-option   │     │   │
+│  │   │ - Batch reads   │                   │   allocation     │     │   │
+│  │   └─────────────────┘                   └─────────────────┘     │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    │                                    │
+│                                    │ FHE Operations                     │
+│                                    ▼                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    Zama fhEVM Infrastructure                     │   │
+│  │                                                                   │   │
+│  │   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │   │
+│  │   │ Coprocessor │  │    KMS      │  │   Gateway/Oracle        │ │   │
+│  │   │             │  │             │  │                         │ │   │
+│  │   │ FHE compute │  │ Key mgmt   │  │ Decryption requests     │ │   │
+│  │   │ on euint32  │  │ & access   │  │ & callbacks             │ │   │
+│  │   └─────────────┘  └─────────────┘  └─────────────────────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: Casting a Vote
+
+```
+1. User selects option     2. Client encrypts      3. Transaction sent
+   in frontend                using FHE                with proof
+        │                         │                        │
+        ▼                         ▼                        ▼
+   ┌─────────┐              ┌──────────┐            ┌──────────────┐
+   │ Option: │  ────────►   │ euint32  │  ───────►  │ castVote()   │
+   │   "A"   │              │ encrypted│            │ on FHEBallot │
+   └─────────┘              └──────────┘            └──────────────┘
+                                                           │
+                                                           ▼
+4. Contract validates    5. Homomorphic add       6. Vote recorded
+   and processes            to option total          (encrypted)
+        │                         │                        │
+        ▼                         ▼                        ▼
+   ┌───────────┐           ┌────────────────┐      ┌────────────────┐
+   │ Verify:   │           │ option.votes = │      │ hasVoted[user] │
+   │ - Active  │           │   FHE.add(     │      │     = true     │
+   │ - !voted  │           │     votes,     │      │                │
+   │ - proof   │           │     encrypted  │      │ totalVoters++  │
+   └───────────┘           │   )            │      └────────────────┘
+                           └────────────────┘
+```
+
+---
+
+## Smart Contract Design
+
+### Contract Hierarchy
+
+```solidity
+// IFHEVoting.sol - Interface Layer
+interface IFHEVoting {
+    enum VotingStatus { NotStarted, Active, Ended, Tallied }
+    enum VoteType { SingleChoice, MultiChoice, Weighted, Quadratic }
+
+    struct VotingConfig {
+        string name;
+        string description;
+        VoteType voteType;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 quorum;
+        bool whitelistEnabled;
+        uint256 maxVotersCount;
+    }
+
+    // fhEVM 0.9.1: externalEuint32 for external encrypted inputs
+    function castVote(
+        uint256 votingId,
+        externalEuint32 encryptedVote,
+        bytes calldata proof
+    ) external;
+}
+
+// FHEVotingBase.sol - Base Implementation
+abstract contract FHEVotingBase is
+    IFHEVoting,
+    Ownable,
+    Pausable,
+    ReentrancyGuard
+{
+    // Common state and FHE utilities
+    mapping(uint256 => Voting) internal votings;
+    uint256 public votingCounter;
+
+    // Batch read optimization
+    function getAllVotingSummaries() external view returns (VotingSummary[] memory);
+    function batchHasVoted(uint256 votingId, address[] calldata voters) external view;
+}
+
+// FHEBallot.sol - Standard Voting Implementation
+contract FHEBallot is FHEVotingBase {
+    // SingleChoice, MultiChoice, Weighted voting
+    function castVote(...) external override {
+        // Validate voting state
+        require(getVotingStatus(votingId) == VotingStatus.Active, "Not active");
+        require(!hasVoted[votingId][msg.sender], "Already voted");
+
+        // Process encrypted vote using FHE operations
+        euint32 vote = FHE.fromExternal(encryptedVote);
+        options[selectedOption].votes = FHE.add(
+            options[selectedOption].votes,
+            vote
+        );
+
+        // Record participation
+        hasVoted[votingId][msg.sender] = true;
+        totalVoters[votingId]++;
+    }
+}
+
+// FHEQuadraticVoting.sol - Quadratic Voting Implementation
+contract FHEQuadraticVoting is FHEVotingBase {
+    mapping(uint256 => mapping(address => uint256)) public voterCredits;
+    mapping(uint256 => uint256) public defaultCredits;
+
+    function castQuadraticVote(
+        uint256 votingId,
+        externalEuint32[] calldata encryptedVotes,
+        uint256[] calldata creditsPerOption,
+        bytes calldata proof
+    ) external {
+        // Validate credits don't exceed allocation
+        uint256 totalCredits;
+        for (uint i = 0; i < creditsPerOption.length; i++) {
+            // Quadratic cost: votes^2 = credits
+            totalCredits += creditsPerOption[i];
+        }
+        require(totalCredits <= voterCredits[votingId][msg.sender], "Insufficient credits");
+
+        // Process each option's encrypted votes
+        for (uint i = 0; i < encryptedVotes.length; i++) {
+            euint32 votes = FHE.fromExternal(encryptedVotes[i]);
+            options[i].votes = FHE.add(options[i].votes, votes);
+        }
+    }
+
+    // Quadratic cost calculation: cost = votes^2
+    function calculateQuadraticCost(uint256 votes) public pure returns (uint256) {
+        return votes * votes;
+    }
+}
+```
+
+### FHE Type System (fhEVM 0.9.1)
+
+```solidity
+// fhEVM 0.9.1 introduces explicit type separation:
+
+// Internal encrypted types (used within contracts)
+euint8, euint16, euint32, euint64, euint128, euint256
+ebool, eaddress
+
+// External encrypted types (for function parameters)
+externalEuint8, externalEuint16, externalEuint32, ...
+externalEbool, externalEaddress
+
+// Conversion between types
+euint32 internal = FHE.fromExternal(externalEuint32 external);
+externalEuint32 external = FHE.toExternal(euint32 internal);
+
+// FHE Operations available:
+FHE.add(euint32 a, euint32 b)      // Homomorphic addition
+FHE.sub(euint32 a, euint32 b)      // Homomorphic subtraction
+FHE.mul(euint32 a, euint32 b)      // Homomorphic multiplication
+FHE.eq(euint32 a, euint32 b)       // Encrypted equality check
+FHE.lt(euint32 a, euint32 b)       // Encrypted less-than
+FHE.select(ebool cond, euint32 a, euint32 b)  // Encrypted conditional
+```
+
+### Batch Reading Optimization
+
+One of HushVote's key optimizations is batch reading to minimize RPC calls:
+
+```solidity
+// Before: N votings × 3 calls = 3N RPC calls
+for (uint i = 0; i < N; i++) {
+    getVotingConfig(i);      // Call 1
+    getOptions(i);           // Call 2
+    getVoterInfo(i, user);   // Call 3
+}
+
+// After: 4 constant calls regardless of N
+function getAllVotingSummaries() external view returns (VotingSummary[] memory) {
+    VotingSummary[] memory summaries = new VotingSummary[](votingCounter);
+    for (uint i = 0; i < votingCounter; i++) {
+        summaries[i] = VotingSummary({
+            id: i,
+            name: votings[i].config.name,
+            status: getVotingStatus(i),
+            totalVoters: totalVoters[i],
+            optionCount: votings[i].options.length,
+            // ... other fields
+        });
+    }
+    return summaries;
+}
+
+function batchHasVoted(uint256 votingId, address[] calldata voters)
+    external view returns (bool[] memory)
+{
+    bool[] memory results = new bool[](voters.length);
+    for (uint i = 0; i < voters.length; i++) {
+        results[i] = hasVoted[votingId][voters[i]];
+    }
+    return results;
+}
+```
+
+---
+
+## FHE Implementation Details
+
+### Vote Encryption Flow
+
+```typescript
+// Frontend encryption (simplified)
+async function encryptVote(optionIndex: number): Promise<{
+  encrypted: Uint8Array;
+  proof: Uint8Array;
+}> {
+  // 1. Create plaintext vote (e.g., 1 for selected, 0 for others)
+  const vote = optionIndex === selectedOption ? 1 : 0;
+
+  // 2. Encrypt using contract's public key
+  const publicKey = await contract.getPublicKey();
+  const encrypted = fhevm.encrypt32(vote, publicKey);
+
+  // 3. Generate ZK proof of valid encryption
+  const proof = fhevm.generateProof(encrypted, voterAddress);
+
+  return { encrypted, proof };
+}
+```
+
+### Decryption Process (Post-Voting)
+
+```solidity
+// Only after voting ends, owner can request decryption
+function requestDecryption(uint256 votingId) external onlyOwner {
+    require(getVotingStatus(votingId) == VotingStatus.Ended, "Not ended");
+
+    // Request decryption through Zama's Gateway
+    for (uint i = 0; i < votings[votingId].options.length; i++) {
+        Gateway.requestDecryption(
+            abi.encode(votingId, i),
+            this.decryptionCallback.selector,
+            votings[votingId].options[i].encryptedVotes
+        );
+    }
+}
+
+// Callback receives decrypted results
+function decryptionCallback(
+    uint256 requestId,
+    uint256 decryptedValue
+) external onlyGateway {
+    (uint256 votingId, uint256 optionIndex) = abi.decode(
+        requestId,
+        (uint256, uint256)
+    );
+
+    votings[votingId].decryptedResults[optionIndex] = decryptedValue;
+
+    // Check if all options decrypted
+    if (allOptionsDecrypted(votingId)) {
+        votings[votingId].status = VotingStatus.Tallied;
+        emit ResultsDecrypted(votingId, getDecryptedResults(votingId));
+    }
+}
+```
+
+---
+
+## Frontend Architecture
+
+### State Management with VotingContext
+
+```typescript
+// VotingContext provides global state with optimized data fetching
+interface VotingContextType {
+  votings: VotingSummary[];
+  userVotedMap: Record<number, boolean>;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+// React Query integration for caching and background updates
+const VotingProvider: React.FC = ({ children }) => {
+  const { data: summaries } = useQuery({
+    queryKey: ['votings', 'all'],
+    queryFn: () => contract.getAllVotingSummaries(),
+    staleTime: 30_000,  // 30s cache
+    refetchInterval: 60_000,  // Background refresh every 60s
+  });
+
+  const { data: hasVotedResults } = useQuery({
+    queryKey: ['votings', 'hasVoted', address],
+    queryFn: async () => {
+      const results: Record<number, boolean> = {};
+      // Batch check all votings in single call
+      for (const voting of summaries) {
+        results[voting.id] = await contract.hasVoted(voting.id, address);
+      }
+      return results;
+    },
+    enabled: !!address && !!summaries,
+  });
+
+  return (
+    <VotingContext.Provider value={{ votings: summaries, userVotedMap: hasVotedResults }}>
+      {children}
+    </VotingContext.Provider>
+  );
+};
+```
+
+### Component Architecture
+
+```
+src/
+├── components/
+│   ├── common/
+│   │   ├── PageLoading.tsx      # Consistent loading states
+│   │   ├── EmptyState.tsx       # Empty data placeholders
+│   │   └── StatusBadge.tsx      # Voting status indicators
+│   ├── voting/
+│   │   ├── VotingCard.tsx       # Dashboard voting card
+│   │   ├── VoteOptions.tsx      # Option selection UI
+│   │   ├── QuadraticSlider.tsx  # Credit allocation for QV
+│   │   └── ResultsChart.tsx     # Results visualization
+│   └── layout/
+│       ├── Header.tsx           # Navigation & wallet
+│       └── Sidebar.tsx          # Main navigation
+│
+├── pages/
+│   ├── Dashboard.tsx            # Voting list with filters
+│   ├── VotePage.tsx             # Individual voting view
+│   ├── CreateVoting.tsx         # Voting creation form
+│   └── Results.tsx              # Results display
+│
+├── context/
+│   └── VotingContext.tsx        # Global voting state
+│
+├── hooks/
+│   ├── useVoting.ts             # Voting operations hook
+│   ├── useWallet.ts             # Wallet connection
+│   └── useFHE.ts                # FHE encryption utilities
+│
+├── services/
+│   ├── contract.ts              # Contract interactions
+│   └── fhe.ts                   # FHE client-side ops
+│
+└── config/
+    ├── contracts.ts             # Contract addresses
+    └── chains.ts                # Network configuration
+```
+
+---
+
+## Deployed Contracts
+
+### Sepolia Testnet (Production)
+
+| Contract | Address | Verified |
+|----------|---------|----------|
+| **FHEBallot** | `0x14F44201Cb91929e4dddB5455DE26B720A81d327` | Yes |
+| **FHEQuadraticVoting** | `0x9a075d9a70Cb72884Abf2c42bd48497b1125510e` | Yes |
+
+### Active Votings
+
+The following votings are currently live on Sepolia:
+
+**FHEBallot Contract:**
+| ID | Name | Type | Duration |
+|----|------|------|----------|
+| 0 | Quick Team Lunch Poll | SingleChoice | 2 hours |
+| 1 | Product Feature Priority | SingleChoice | 1 day |
+| 2 | Community Meetup Location | SingleChoice | 3 days |
+| 3 | Protocol Upgrade v2.0 | SingleChoice | 1 week |
+| 4 | Q1 Treasury Allocation | Weighted | 5 days |
+| 5 | Hackathon Track Selection | MultiChoice | 2 days |
+
+**FHEQuadraticVoting Contract:**
+| ID | Name | Credits | Duration |
+|----|------|---------|----------|
+| 0 | Research Grant Allocation | 100 | 4 days |
+| 1 | Ecosystem Fund Distribution | 150 | 10 days |
+
+---
 
 ## Technology Stack
 
-### Blockchain & Cryptography
-- **Zama fhEVM**: Fully Homomorphic Encryption virtual machine
-- **Ethereum Sepolia**: Test network deployment
-- **Solidity ^0.8.19**: Smart contract language
-- **@fhevm/solidity**: v0.8.0 - FHE operations library
-- **Hardhat**: Development environment and testing framework
+### Smart Contracts
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `@fhevm/solidity` | ^0.9.1 | FHE operations library |
+| `@openzeppelin/contracts` | ^5.0.0 | Security base contracts |
+| `@openzeppelin/contracts-upgradeable` | ^5.0.0 | Upgradeable patterns |
+| `@zama-fhe/relayer-sdk` | 0.3.0-5 | Relayer integration |
+| `hardhat` | ^2.26.3 | Development environment |
+| `ethers` | ^6.13.4 | Ethereum interactions |
+| `@fhevm/hardhat-plugin` | 0.3.0-1 | FHE Hardhat integration |
+
+**Compiler Settings:**
+```javascript
+{
+  version: "0.8.24",
+  settings: {
+    optimizer: { enabled: true, runs: 200 },
+    viaIR: true,
+    evmVersion: "cancun"
+  }
+}
+```
 
 ### Frontend
-- **React 18.2**: UI framework
-- **TypeScript 5.2**: Type-safe JavaScript
-- **Vite 5.2**: Build tool and dev server
-- **Ant Design 5.15**: UI component library
-- **TanStack Query 5.28**: Data fetching and caching
-- **React Router 6.22**: Client-side routing
 
-### Web3 Integration
-- **Ethers.js 6.11**: Ethereum interaction library
-- **Privy SDK 2.24**: Web3 authentication and wallet management
-- **fhevmjs 0.8.0**: Client-side FHE operations
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` | ^18.2.0 | UI framework |
+| `typescript` | ^5.2.2 | Type safety |
+| `vite` | ^5.2.0 | Build tool |
+| `antd` | ^5.15.0 | UI components |
+| `@tanstack/react-query` | ^5.28.0 | Data fetching & caching |
+| `ethers` | ^6.15.0 | Web3 interactions |
+| `@privy-io/react-auth` | ^2.24.0 | Wallet authentication |
+| `react-router-dom` | ^6.22.0 | Client routing |
+| `recharts` | ^2.12.0 | Data visualization |
 
-### Development Tools
-- **ESLint**: Code linting
-- **Prettier**: Code formatting
-- **TypeScript**: Static type checking
-- **Vercel**: Deployment platform
+### Infrastructure
+
+| Service | Purpose |
+|---------|---------|
+| **Vercel** | Frontend hosting & CDN |
+| **Sepolia** | Ethereum testnet |
+| **Zama fhEVM** | FHE coprocessor infrastructure |
+| **Infura** | RPC provider |
+
+---
 
 ## Project Structure
 
 ```
 hushvote/
-├── contracts/                # Smart contracts
-│   ├── src/                 # Contract source files
-│   │   ├── FHEBallot.sol   # Main voting contract
-│   │   ├── FHEQuadraticVoting.sol
-│   │   ├── FHEVotingBase.sol
-│   │   └── IFHEVoting.sol  # Interface definitions
-│   ├── scripts/             # Deployment scripts
-│   ├── test/                # Contract tests
-│   └── hardhat.config.js    # Hardhat configuration
+├── contracts/                      # Solidity smart contracts
+│   ├── src/                        # Contract source files
+│   │   ├── FHEBallot.sol          # Standard/weighted/multi voting
+│   │   ├── FHEQuadraticVoting.sol # Quadratic voting with credits
+│   │   ├── FHEVotingBase.sol      # Base contract with shared logic
+│   │   └── IFHEVoting.sol         # Interface definitions
+│   ├── scripts/                    # Deployment & utility scripts
+│   │   ├── deploy.js              # Main deployment script
+│   │   └── create-votings.js      # Create sample votings
+│   ├── test/                       # Contract tests
+│   ├── deployments/                # Deployment artifacts
+│   ├── hardhat.config.ts          # Hardhat configuration
+│   └── package.json               # Contract dependencies
 │
-├── frontend/                 # React application
+├── frontend/                       # React application
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/          # Page components
-│   │   │   ├── Dashboard.tsx
-│   │   │   ├── VotePage.tsx
-│   │   │   ├── CreateVoting.tsx
-│   │   │   └── Results.tsx
-│   │   ├── services/       # API and contract services
-│   │   ├── utils/          # Utility functions
-│   │   │   └── fhe.ts      # FHE encryption utilities
-│   │   ├── hooks/          # Custom React hooks
-│   │   └── App.tsx         # Main application
-│   ├── public/             # Static assets
-│   └── package.json        # Frontend dependencies
+│   │   ├── components/            # Reusable UI components
+│   │   ├── pages/                 # Route pages
+│   │   ├── context/               # React context providers
+│   │   ├── hooks/                 # Custom hooks
+│   │   ├── services/              # API & contract services
+│   │   ├── config/                # Configuration files
+│   │   ├── utils/                 # Utility functions
+│   │   └── App.tsx                # Root component
+│   ├── public/                     # Static assets
+│   ├── vite.config.ts             # Vite configuration
+│   └── package.json               # Frontend dependencies
 │
-├── backend/                 # Backend API (optional)
-│   ├── src/                # Source files
-│   └── package.json        # Backend dependencies
-│
-└── README.md               # This file
+├── lockup_monogram_hv.svg         # Logo
+├── vercel.json                    # Vercel configuration
+└── README.md                      # This file
 ```
 
-## Prerequisites
+---
 
-Before you begin, ensure you have the following installed:
+## Getting Started
 
-- **Node.js**: v18.0.0 or higher
-- **npm**: v9.0.0 or higher (or yarn v1.22.0+)
-- **Git**: Latest version
-- **MetaMask**: Or any Web3-compatible wallet
+### Prerequisites
 
-### Required Accounts
-- **Ethereum Wallet**: With Sepolia testnet ETH
-- **Infura/Alchemy**: RPC provider account (optional for local development)
+- **Node.js** >= 18.0.0
+- **npm** >= 9.0.0
+- **MetaMask** or compatible Web3 wallet
+- **Sepolia ETH** for gas (get from [Sepolia Faucet](https://sepoliafaucet.com/))
 
-## Installation
-
-### 1. Clone the Repository
+### Quick Start
 
 ```bash
-git clone https://github.com/yourusername/hushvote.git
+# Clone repository
+git clone https://github.com/your-org/hushvote.git
 cd hushvote
-```
 
-### 2. Install Contract Dependencies
-
-```bash
+# Install contract dependencies
 cd contracts
 npm install
-```
 
-### 3. Install Frontend Dependencies
-
-```bash
+# Install frontend dependencies
 cd ../frontend
 npm install
+
+# Start development server
+npm run dev
 ```
 
-### 4. Install Backend Dependencies (Optional)
+Visit `http://localhost:5173` and connect your wallet to start voting!
 
-```bash
-cd ../backend
-npm install
-```
+---
 
 ## Configuration
 
-### 1. Smart Contract Configuration
-
-Create a `.env` file in the `contracts` directory:
+### Contract Environment (.env)
 
 ```env
-# Network RPC URLs
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
-MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_INFURA_KEY
+# contracts/.env
 
-# Private Keys (NEVER commit these!)
-DEPLOYER_PRIVATE_KEY=your_private_key_here
+# Network Configuration
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_KEY
 
-# Etherscan API (for verification)
-ETHERSCAN_API_KEY=your_etherscan_api_key
+# Deployment Account
+DEPLOYER_PRIVATE_KEY=0x...
 
-# Zama FHE Configuration (Sepolia)
-FHE_COPROCESSOR_ADDRESS=0x848B0066793BcC60346Da1F49049357399B8D595
-FHE_ACL_ADDRESS=0x687820221192C5B662b25367F70076A37bc79b6c
-FHE_KMS_VERIFIER_ADDRESS=0x1364cBBf2cDF5032C47d8226a6f6FBD2AFCDacAC
-FHE_ORACLE_ADDRESS=0x45e8C85e036b14De38893E1b002E616d64224018
+# Etherscan (for verification)
+ETHERSCAN_API_KEY=YOUR_ETHERSCAN_KEY
+
+# Optional: Custom network parameters
+ENCRYPTION_THRESHOLD=3
 ```
 
-### 2. Frontend Configuration
-
-Create a `.env` file in the `frontend` directory:
+### Frontend Environment (.env)
 
 ```env
-# Vite environment variables
+# frontend/.env
+
+# Privy Authentication
 VITE_PRIVY_APP_ID=your_privy_app_id
-VITE_CONTRACT_ADDRESS=deployed_contract_address
-VITE_NETWORK_NAME=sepolia
-VITE_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
 
-# Optional: Analytics
-VITE_GA_TRACKING_ID=your_google_analytics_id
+# Network Configuration
+VITE_CHAIN_ID=11155111
+VITE_RPC_URL=https://sepolia.infura.io/v3/YOUR_KEY
+
+# Contract Addresses (updated after deployment)
+VITE_BALLOT_ADDRESS=0x14F44201Cb91929e4dddB5455DE26B720A81d327
+VITE_QUADRATIC_ADDRESS=0x9a075d9a70Cb72884Abf2c42bd48497b1125510e
 ```
 
-### 3. Privy Configuration
+---
 
-1. Create an account at [Privy.io](https://www.privy.io/)
-2. Create a new application
-3. Configure allowed domains:
-   - Development: `http://localhost:5173`
-   - Production: Your production domain
-4. Copy the App ID to your `.env` file
+## Deployment Guide
 
-## Deployment
-
-### Smart Contract Deployment
-
-#### 1. Compile Contracts
+### Compile Contracts
 
 ```bash
 cd contracts
 npx hardhat compile
 ```
 
-#### 2. Deploy to Sepolia
+### Deploy to Sepolia
 
 ```bash
+SEPOLIA_RPC_URL="https://ethereum-sepolia-rpc.publicnode.com" \
 npx hardhat run scripts/deploy.js --network sepolia
 ```
 
-Save the deployed contract addresses for frontend configuration.
-
-#### 3. Verify Contracts
+### Create Sample Votings
 
 ```bash
-npx hardhat verify --network sepolia CONTRACT_ADDRESS "constructor_arg1" "constructor_arg2"
+SEPOLIA_RPC_URL="https://ethereum-sepolia-rpc.publicnode.com" \
+npx hardhat run scripts/create-votings.js --network sepolia
 ```
 
-### Frontend Deployment
+### Deploy Frontend
 
-#### Option 1: Vercel Deployment (Recommended)
-
-1. Install Vercel CLI:
-```bash
-npm i -g vercel
-```
-
-2. Deploy:
-```bash
-cd frontend
-vercel
-```
-
-3. Follow the prompts to configure your deployment
-
-#### Option 2: Manual Build and Deploy
-
-1. Build the frontend:
 ```bash
 cd frontend
 npm run build
+
+# Deploy to Vercel
+vercel --prod
 ```
 
-2. The `dist` folder contains the static files ready for deployment
+---
 
-3. Deploy to your preferred hosting service (Netlify, AWS S3, etc.)
+## Security Considerations
 
-#### Option 3: Docker Deployment
+### On-Chain Security
 
-1. Build Docker image:
-```bash
-docker build -t hushvote-frontend ./frontend
-```
+1. **Access Control**: `Ownable` pattern for admin functions
+2. **Reentrancy Protection**: `ReentrancyGuard` on all state-changing functions
+3. **Pausability**: Emergency pause mechanism
+4. **Time Enforcement**: On-chain start/end time validation
+5. **Double-Vote Prevention**: `hasVoted` mapping enforcement
 
-2. Run container:
-```bash
-docker run -p 80:80 -e VITE_CONTRACT_ADDRESS=0x... hushvote-frontend
-```
+### FHE Security Properties
 
-## Smart Contract Addresses
+1. **Semantic Security**: Individual votes are computationally indistinguishable
+2. **Verifiability**: All FHE operations are performed on-chain
+3. **Threshold Decryption**: Results require authorized decryption request
+4. **No Trusted Setup**: fhEVM doesn't require ceremony
 
-### Sepolia Testnet (Current Deployment)
+### Frontend Security
 
-| Contract | Address | Block |
-|----------|---------|-------|
-| FHEBallot | `0x...` | TBD |
-| FHEQuadraticVoting | `0x...` | TBD |
+1. **Wallet Validation**: Privy SDK handles secure wallet connections
+2. **Transaction Signing**: All transactions require explicit user approval
+3. **No Private Key Storage**: Keys never leave the wallet
 
-### Mainnet (Future Deployment)
-
-| Contract | Address | Block |
-|----------|---------|-------|
-| FHEBallot | TBD | TBD |
-| FHEQuadraticVoting | TBD | TBD |
-
-## Usage
-
-### Creating a Voting Session
-
-1. **Connect Wallet**: Click "Connect Wallet" and authorize with Privy
-2. **Navigate to Create**: Go to the "Create Voting" page
-3. **Configure Voting**:
-   - Set voting name and description
-   - Choose voting type (Standard/Weighted/Quadratic)
-   - Add voting options (minimum 2)
-   - Set start and end times
-   - Configure quorum (optional)
-   - Enable whitelist (optional)
-4. **Deploy**: Submit transaction to create voting on-chain
-
-### Casting a Vote
-
-1. **Browse Votings**: View active votings on the dashboard
-2. **Select Voting**: Click on a voting to view details
-3. **Cast Vote**:
-   - Select your preferred option(s)
-   - For quadratic voting, allocate credits
-   - Confirm your encrypted vote
-4. **Submit**: Sign and submit the transaction
-
-### Viewing Results
-
-1. **Wait for End**: Results are available after voting ends
-2. **Request Decryption**: Voting creator can request result decryption
-3. **View Results**: Once decrypted, results show:
-   - Total votes per option
-   - Winner determination
-   - Participation statistics
+---
 
 ## API Reference
 
-### Smart Contract Functions
+### FHEBallot Contract
 
-#### Create Voting
 ```solidity
+// Create a new voting
 function createVoting(
     VotingConfig calldata config,
     string[] calldata optionNames,
     string[] calldata optionDescriptions
-) external returns (uint256 votingId)
-```
+) external returns (uint256 votingId);
 
-#### Cast Vote
-```solidity
+// Cast an encrypted vote
 function castVote(
     uint256 votingId,
-    bytes calldata encryptedVote,
+    externalEuint32 encryptedVote,
     bytes calldata proof
-) external
+) external;
+
+// Batch read all voting summaries
+function getAllVotingSummaries() external view returns (VotingSummary[] memory);
+
+// Check if addresses have voted
+function batchHasVoted(uint256 votingId, address[] calldata voters)
+    external view returns (bool[] memory);
+
+// Request result decryption (owner only)
+function requestDecryption(uint256 votingId) external;
+
+// Get decrypted results
+function getDecryptedResults(uint256 votingId)
+    external view returns (uint256[] memory);
 ```
 
-#### Request Decryption
+### FHEQuadraticVoting Contract
+
 ```solidity
-function requestDecryption(uint256 votingId) external
+// Set default credits for new voters
+function setDefaultCredits(uint256 votingId, uint256 credits) external;
+
+// Allocate credits to specific voter
+function allocateCredits(uint256 votingId, address voter, uint256 credits) external;
+
+// Cast quadratic vote with credit allocation
+function castQuadraticVote(
+    uint256 votingId,
+    externalEuint32[] calldata encryptedVotes,
+    uint256[] calldata creditsPerOption,
+    bytes calldata proof
+) external;
+
+// Get voter's remaining credits
+function getVoterCredits(uint256 votingId, address voter)
+    external view returns (uint256);
+
+// Calculate quadratic cost
+function calculateQuadraticCost(uint256 votes)
+    external pure returns (uint256);
 ```
 
-### Frontend Services
-
-#### FHE Service
-```typescript
-// Initialize FHE
-await initializeFHE()
-
-// Encrypt vote
-const encrypted = await encryptVote(optionIndex)
-
-// Generate proof
-const proof = generateProof(encrypted, voterAddress)
-```
-
-#### Contract Service
-```typescript
-// Create voting
-await contractService.createVoting(config, options)
-
-// Cast vote
-await contractService.castVote(votingId, encryptedVote, proof)
-
-// Get results
-const results = await contractService.getDecryptedResults(votingId)
-```
-
-## Security
-
-### Security Features
-
-1. **End-to-End Encryption**: Votes are encrypted client-side before submission
-2. **Homomorphic Operations**: All computations on votes happen in encrypted space
-3. **Access Control**: Role-based permissions for administrative functions
-4. **Reentrancy Protection**: Guards against reentrancy attacks
-5. **Pausability**: Emergency pause mechanism for critical issues
-6. **Time Locks**: Voting periods enforced on-chain
-7. **Proof Verification**: Zero-knowledge proofs validate vote integrity
-
-### Security Audits
-
-- **Smart Contract Audit**: (Planned)
-- **Frontend Security Review**: (Planned)
-- **FHE Implementation Review**: (Planned)
-
-### Best Practices
-
-1. **Never share private keys**
-2. **Verify contract addresses before interaction**
-3. **Use hardware wallets for high-value operations**
-4. **Check voting parameters before casting votes**
-5. **Verify SSL certificates when accessing the web app**
-
-## Testing
-
-### Smart Contract Tests
-
-```bash
-cd contracts
-
-# Run all tests
-npx hardhat test
-
-# Run specific test file
-npx hardhat test test/FHEBallot.test.js
-
-# Run with coverage
-npx hardhat coverage
-
-# Run with gas reporting
-REPORT_GAS=true npx hardhat test
-```
-
-### Frontend Tests
-
-```bash
-cd frontend
-
-# Run unit tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run e2e tests
-npm run test:e2e
-```
-
-### Integration Tests
-
-```bash
-# Start local blockchain
-cd contracts
-npx hardhat node
-
-# Deploy contracts locally
-npx hardhat run scripts/deploy.js --network localhost
-
-# Run integration tests
-npm run test:integration
-```
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-
-- Solidity: Follow [Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html)
-- TypeScript/React: ESLint and Prettier configurations are provided
-- Commits: Follow [Conventional Commits](https://www.conventionalcommits.org/)
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## Acknowledgments
 
-- **Zama**: For pioneering FHE technology and the fhEVM
-- **Ethereum Foundation**: For the robust blockchain platform
-- **OpenZeppelin**: For secure smart contract libraries
-- **Community Contributors**: For feedback and improvements
-
-## Contact
-
-- **Website**: [hushvote.io](https://hushvote.io) (Coming Soon)
-- **Email**: contact@hushvote.io
-- **Twitter**: [@HushVote](https://twitter.com/hushvote)
-- **Discord**: [Join our community](https://discord.gg/hushvote)
+- **[Zama](https://www.zama.ai/)** - Pioneering FHE technology and the fhEVM
+- **[OpenZeppelin](https://openzeppelin.com/)** - Secure smart contract libraries
+- **[Privy](https://www.privy.io/)** - Seamless Web3 authentication
+- **[Ant Design](https://ant.design/)** - Beautiful UI components
 
 ---
 
 <div align="center">
-  <p>Built with ❤️ for privacy and democracy</p>
-  <p>Powered by Zama's Fully Homomorphic Encryption</p>
+  <br/>
+  <p><strong>HushVote</strong> - Where privacy meets democracy</p>
+  <p>Powered by Zama Fully Homomorphic Encryption</p>
+  <br/>
+  <p>
+    <a href="https://hushvote.vercel.app">Live Demo</a> |
+    <a href="https://docs.zama.ai/fhevm">fhEVM Docs</a> |
+    <a href="https://sepolia.etherscan.io/address/0x14F44201Cb91929e4dddB5455DE26B720A81d327">View Contract</a>
+  </p>
 </div>
