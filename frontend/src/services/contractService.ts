@@ -1,7 +1,19 @@
 import { ethers } from 'ethers';
 import FHEBallotABI from '../abi/FHEBallot.json';
 import FHEQuadraticVotingABI from '../abi/FHEQuadraticVoting.json';
-import { CONTRACT_ADDRESSES, SUPPORTED_CHAINS, RPC_URLS } from '../config/contracts';
+import { CONTRACT_ADDRESSES, SUPPORTED_CHAINS, RPC_URLS, EXPLORER_URLS } from '../config/contracts';
+
+// Transaction result type with hash for notifications
+export interface TxResult {
+  hash: string;
+  receipt: any;
+  explorerUrl: string;
+}
+
+// Get explorer URL for transaction
+export function getTxExplorerUrl(hash: string): string {
+  return `${EXPLORER_URLS[SUPPORTED_CHAINS.SEPOLIA]}/tx/${hash}`;
+}
 
 // Contract instances
 let contractInstance: ethers.Contract | null = null; // FHEBallot
@@ -170,7 +182,7 @@ async function buildTxOverrides(
   return overrides;
 }
 
-// Create a new voting
+// Create a new voting - returns voting ID and transaction info
 export async function createVoting(
   title: string,
   description: string,
@@ -179,12 +191,12 @@ export async function createVoting(
   startTime: number,
   endTime: number,
   votingType: number = 0
-): Promise<number> {
+): Promise<{ votingId: number; txResult: TxResult }> {
   try {
     await ensureInitialized();
     // Use Quadratic contract for quadratic votings
     const contract = votingType === 3 ? getQuadraticContract() : getContract();
-    
+
     // Create voting config struct
     const votingConfig = {
       name: title,
@@ -196,10 +208,10 @@ export async function createVoting(
       whitelistEnabled: false, // No whitelist
       maxVotersCount: 1000000 // Large number for unlimited voters
     };
-    
+
     // Use provided option names and descriptions
     const optionNames = options;
-    
+
     // Call createVoting function with struct and arrays, with EIP-1559 + gasLimit overrides
     const overrides = await buildTxOverrides(contract, 'createVoting', [votingConfig, optionNames, optionDescriptions]);
     const tx = await contract.createVoting(
@@ -208,10 +220,15 @@ export async function createVoting(
       optionDescriptions,
       overrides
     );
-    
+
     // Wait for transaction confirmation
-  const receipt = await tx.wait();
-    
+    const receipt = await tx.wait();
+    const txResult: TxResult = {
+      hash: tx.hash,
+      receipt,
+      explorerUrl: getTxExplorerUrl(tx.hash),
+    };
+
     // Get voting ID from events
     const event = receipt.logs.find((log: any) => {
       try {
@@ -221,59 +238,50 @@ export async function createVoting(
         return false;
       }
     });
-    
+
+    let votingId: number;
     if (event) {
       const parsedEvent = contract.interface.parseLog(event);
-      const newId = Number(parsedEvent?.args?.votingId || 0);
-      // Best-effort cache update
-      try {
-        const source = votingType === 3 ? 'quadratic' : 'ballot';
-        const fresh = await getVotingFrom(source as any, newId);
-        const cacheKey = `hv:votings:${CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEBallot}:${CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEQuadraticVoting}`;
-        const cached = loadCache<VotingData[]>(cacheKey);
-        const next = cached?.data ? [...cached.data] : [];
-        if (!next.find((v) => v.id === newId && (v as any).source === source)) {
-          next.unshift(fresh);
-          saveCache(cacheKey, next);
-        }
-      } catch {}
-      return newId;
+      votingId = Number(parsedEvent?.args?.votingId || 0);
+    } else {
+      // If no event found, get current voting counter
+      const votingCounter = await contract.votingCounter();
+      votingId = Number(votingCounter) - 1;
     }
-    
-    // If no event found, get current voting counter
-    const votingCounter = await contract.votingCounter();
-    const fallbackId = Number(votingCounter) - 1;
+
+    // Best-effort cache update
     try {
       const source = votingType === 3 ? 'quadratic' : 'ballot';
-      const fresh = await getVotingFrom(source as any, fallbackId);
+      const fresh = await getVotingFrom(source as any, votingId);
       const cacheKey = `hv:votings:${CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEBallot}:${CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEQuadraticVoting}`;
       const cached = loadCache<VotingData[]>(cacheKey);
       const next = cached?.data ? [...cached.data] : [];
-      if (!next.find((v) => v.id === fallbackId && (v as any).source === source)) {
+      if (!next.find((v) => v.id === votingId && (v as any).source === source)) {
         next.unshift(fresh);
         saveCache(cacheKey, next);
       }
     } catch {}
-    return fallbackId;
+
+    return { votingId, txResult };
   } catch (error) {
     console.error('Failed to create voting:', error);
     throw error;
   }
 }
 
-// Cast a vote
+// Cast a vote - returns transaction result
 export async function castVote(
   votingId: number,
   encryptedVote: string,
   proof?: string
-): Promise<void> {
+): Promise<TxResult> {
   try {
     await ensureInitialized();
     const contract = getContract();
-    
+
     // Convert encrypted vote hex string to raw bytes
     const voteBytes = ethers.getBytes(encryptedVote);
-    
+
     // Call castVote function
     const proofBytes = proof
       ? (proof.startsWith('0x') ? ethers.getBytes(proof) : ethers.toUtf8Bytes(proof))
@@ -285,24 +293,29 @@ export async function castVote(
       proofBytes,
       overrides
     );
-    
+
     // Wait for transaction confirmation
-    await tx.wait();
-    
+    const receipt = await tx.wait();
+
     console.log('Vote cast successfully');
+    return {
+      hash: tx.hash,
+      receipt,
+      explorerUrl: getTxExplorerUrl(tx.hash),
+    };
   } catch (error) {
     console.error('Failed to cast vote:', error);
     throw error;
   }
 }
 
-// Cast a weighted vote (voteType == 2)
+// Cast a weighted vote (voteType == 2) - returns transaction result
 export async function castWeightedVote(
   votingId: number,
   encryptedVote: string,
   weight: number,
   proof?: string
-): Promise<void> {
+): Promise<TxResult> {
   try {
     await ensureInitialized();
     const contract = getContract();
@@ -318,7 +331,12 @@ export async function castWeightedVote(
       proofBytes,
       overrides
     );
-    await tx.wait();
+    const receipt = await tx.wait();
+    return {
+      hash: tx.hash,
+      receipt,
+      explorerUrl: getTxExplorerUrl(tx.hash),
+    };
   } catch (error) {
     console.error('Failed to cast weighted vote:', error);
     throw error;
@@ -600,49 +618,73 @@ export async function getResultsFrom(source: 'ballot' | 'quadratic', votingId: n
   return results.map((r: any) => Number(r));
 }
 
-export async function requestDecryptionFrom(source: 'ballot' | 'quadratic', votingId: number): Promise<void> {
+export async function requestDecryptionFrom(source: 'ballot' | 'quadratic', votingId: number): Promise<TxResult> {
   await ensureInitialized();
   const c = source === 'quadratic' ? getQuadraticContract() : getContract();
   const overrides = await buildTxOverrides(c, 'requestDecryption', [votingId]);
   const tx = await c.requestDecryption(votingId, overrides);
-  await tx.wait();
+  const receipt = await tx.wait();
+  return {
+    hash: tx.hash,
+    receipt,
+    explorerUrl: getTxExplorerUrl(tx.hash),
+  };
 }
 
-export async function startVotingFrom(source: 'ballot' | 'quadratic', votingId: number): Promise<void> {
+export async function startVotingFrom(source: 'ballot' | 'quadratic', votingId: number): Promise<TxResult> {
   await ensureInitialized();
   const c = source === 'quadratic' ? getQuadraticContract() : getContract();
   const overrides = await buildTxOverrides(c, 'startVoting', [votingId]);
   const tx = await c.startVoting(votingId, overrides);
-  await tx.wait();
+  const receipt = await tx.wait();
+  return {
+    hash: tx.hash,
+    receipt,
+    explorerUrl: getTxExplorerUrl(tx.hash),
+  };
 }
 
-export async function endVotingFrom(source: 'ballot' | 'quadratic', votingId: number): Promise<void> {
+export async function endVotingFrom(source: 'ballot' | 'quadratic', votingId: number): Promise<TxResult> {
   await ensureInitialized();
   const c = source === 'quadratic' ? getQuadraticContract() : getContract();
   const overrides = await buildTxOverrides(c, 'endVoting', [votingId]);
   const tx = await c.endVoting(votingId, overrides);
-  await tx.wait();
+  const receipt = await tx.wait();
+  return {
+    hash: tx.hash,
+    receipt,
+    explorerUrl: getTxExplorerUrl(tx.hash),
+  };
 }
 
-// Cast a quadratic vote (voteType == 3)
+// Cast a quadratic vote (voteType == 3) - returns transaction result
 export async function castQuadraticVote(
   votingId: number,
   encryptedVotes: string[],
   credits: number[],
   proof?: string
-): Promise<void> {
+): Promise<TxResult> {
   try {
+    await ensureInitialized();
+    const contract = getQuadraticContract();
     const votesBytes = encryptedVotes.map((h) => ethers.getBytes(h));
     const proofBytes = proof
       ? (proof.startsWith('0x') ? ethers.getBytes(proof) : ethers.toUtf8Bytes(proof))
       : '0x';
-    const tx = await getQuadraticContract().castQuadraticVote(
+    const overrides = await buildTxOverrides(contract, 'castQuadraticVote', [votingId, votesBytes, credits, proofBytes]);
+    const tx = await contract.castQuadraticVote(
       votingId,
       votesBytes,
       credits,
-      proofBytes
+      proofBytes,
+      overrides
     );
-    await tx.wait();
+    const receipt = await tx.wait();
+    return {
+      hash: tx.hash,
+      receipt,
+      explorerUrl: getTxExplorerUrl(tx.hash),
+    };
   } catch (error) {
     console.error('Failed to cast quadratic vote:', error);
     throw error;

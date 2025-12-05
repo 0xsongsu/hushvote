@@ -30,10 +30,11 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { EncryptionStatus } from '../components/EncryptionStatus';
 import { useFHE } from '../hooks/useFHE';
 import { useWallet } from '../hooks/useWallet';
-import { getVotingFrom as getVotingOnchainFrom, castVote as castVoteOnchain, castWeightedVote as castWeightedVoteOnchain, castQuadraticVote as castQuadraticVoteOnchain, getStatusFrom } from '../services/contractService';
+import { getVotingFrom as getVotingOnchainFrom, castVote as castVoteOnchain, castWeightedVote as castWeightedVoteOnchain, castQuadraticVote as castQuadraticVoteOnchain, getStatusFrom, TxResult } from '../services/contractService';
 import { VotingType, VotingOption } from '../types';
 import { encryptMultipleOptions } from '../utils/fhe';
 import { CONTRACT_ADDRESSES, SUPPORTED_CHAINS } from '../config/contracts';
+import { showTxNotification, updateTxNotification } from '../utils/txNotification';
 
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -91,23 +92,34 @@ export const VotePage: React.FC = () => {
   const submitVoteMutation = useMutation({
     mutationFn: async () => {
       if (!voting || !wallet) throw new Error('Missing data');
-      
+
       setEncryptionStatus('encrypting');
-      
+      let notificationKey: string | null = null;
+
       try {
         // Pre-check on-chain status for clearer UX
         const status = await getStatusFrom((source as any) || 'ballot', Number(id));
         if (status !== 1) {
           throw new Error('Voting not active yet. Please wait for start.');
         }
+
+        // Show encrypting notification
+        notificationKey = showTxNotification({
+          type: 'pending',
+          title: 'Encrypting Vote',
+          description: 'Encrypting your vote with FHE...',
+          chainId: SUPPORTED_CHAINS.SEPOLIA,
+        });
+
         // Encrypt the vote based on voting type
         let encryptedData: any;
+        let txResult: TxResult | undefined;
         // Resolve dApp contract address for encryption (ballot vs quadratic)
         const contractAddr = (source === 'quadratic')
           ? CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEQuadraticVoting
           : CONTRACT_ADDRESSES[SUPPORTED_CHAINS.SEPOLIA].FHEBallot;
         const userAddr = wallet.address;
-        
+
         if (voting.type === VotingType.SINGLE_CHOICE) {
           const optionIndex = voting.options.findIndex(o => o.id === selectedOptions[0]);
           encryptedData = await encrypt(optionIndex, contractAddr, userAddr);
@@ -119,9 +131,28 @@ export const VotePage: React.FC = () => {
           // Build arrays for encryptedVotes and credits
           const creditsArr: number[] = voting.options.map((opt) => quadraticCredits[opt.id] || 0);
           // Use single batch encryption for multiple variables, ensuring proof covers all handles
-          const { handles, proof } = await encryptMultipleOptions(contractAddr, userAddr, voting.options.length);
-          await castQuadraticVoteOnchain(Number(id), handles, creditsArr, proof);
+          // Pass the credits array to encrypt each option's credit allocation
+          const { handles, proof } = await encryptMultipleOptions(contractAddr, userAddr, creditsArr);
+
+          // Update notification for tx submission
+          updateTxNotification(notificationKey, {
+            type: 'pending',
+            title: 'Submitting Vote',
+            description: 'Waiting for wallet confirmation...',
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+
+          txResult = await castQuadraticVoteOnchain(Number(id), handles, creditsArr, proof);
           encryptedData = handles;
+
+          // Update notification with tx hash
+          updateTxNotification(notificationKey, {
+            type: 'pending',
+            title: 'Vote Submitted',
+            description: 'Waiting for confirmation...',
+            txHash: txResult.hash,
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
         }
 
         // InputProof obtained from relayer (for single choice/weighted voting scenarios)
@@ -134,39 +165,104 @@ export const VotePage: React.FC = () => {
           encryptedData = (encryptedData as any).choice?.handle || (encryptedData as any).handle;
         }
 
-        // Submit on-chain
+        // Submit on-chain (for non-quadratic voting)
         const votingIdNum = Number(id);
         if (voting.type === VotingType.SINGLE_CHOICE) {
-          await castVoteOnchain(votingIdNum, encryptedData as string, proof);
+          // Update notification for tx submission
+          updateTxNotification(notificationKey, {
+            type: 'pending',
+            title: 'Submitting Vote',
+            description: 'Waiting for wallet confirmation...',
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+
+          txResult = await castVoteOnchain(votingIdNum, encryptedData as string, proof);
+
+          // Update notification with tx hash
+          updateTxNotification(notificationKey, {
+            type: 'pending',
+            title: 'Vote Submitted',
+            description: 'Waiting for confirmation...',
+            txHash: txResult.hash,
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
         } else if (voting.type === VotingType.WEIGHTED) {
           const optId = selectedOptions[0];
           const weight = weights[optId] || 1;
-          await castWeightedVoteOnchain(
+
+          // Update notification for tx submission
+          updateTxNotification(notificationKey, {
+            type: 'pending',
+            title: 'Submitting Vote',
+            description: 'Waiting for wallet confirmation...',
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+
+          txResult = await castWeightedVoteOnchain(
             votingIdNum,
             (encryptedData as string),
             weight,
             proof
           );
-        } else {
+
+          // Update notification with tx hash
+          updateTxNotification(notificationKey, {
+            type: 'pending',
+            title: 'Vote Submitted',
+            description: 'Waiting for confirmation...',
+            txHash: txResult.hash,
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+        } else if (voting.type !== VotingType.QUADRATIC) {
           throw new Error('This voting type is not supported yet in on-chain submission');
         }
-        
+
         setEncryptionStatus('encrypted');
-        return true;
+
+        // Show success notification with tx link
+        if (txResult) {
+          updateTxNotification(notificationKey, {
+            type: 'success',
+            title: 'Vote Confirmed',
+            description: 'Your encrypted vote has been recorded on-chain!',
+            txHash: txResult.hash,
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+        }
+
+        return txResult;
       } catch (error: any) {
         setEncryptionStatus('error');
         const reason = error?.shortMessage || error?.reason || error?.message || 'Failed to submit vote';
+
+        // Show error notification
+        if (notificationKey) {
+          updateTxNotification(notificationKey, {
+            type: 'error',
+            title: 'Vote Failed',
+            description: reason,
+            txHash: error?.transactionHash || error?.receipt?.hash,
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+        } else {
+          showTxNotification({
+            type: 'error',
+            title: 'Vote Failed',
+            description: reason,
+            chainId: SUPPORTED_CHAINS.SEPOLIA,
+          });
+        }
+
         throw new Error(reason);
       }
     },
     onSuccess: () => {
-      message.success('Vote submitted successfully!');
       setTimeout(() => {
         navigate('/votings');
       }, 2000);
     },
-    onError: (err: any) => {
-      message.error(err?.message || 'Failed to submit vote');
+    onError: () => {
+      // Error notification already shown in mutationFn
     },
   });
 
@@ -206,12 +302,18 @@ export const VotePage: React.FC = () => {
       message.warning('Please connect your wallet first');
       return;
     }
-    
-    if (selectedOptions.length === 0) {
+
+    // For Quadratic voting, check credits; for others, check selected options
+    if (voting?.type === VotingType.QUADRATIC) {
+      if (getTotalQuadraticCredits() === 0) {
+        message.warning('Please allocate some credits to vote');
+        return;
+      }
+    } else if (selectedOptions.length === 0) {
       message.warning('Please select at least one option');
       return;
     }
-    
+
     setShowConfirmModal(true);
   };
 
@@ -493,7 +595,11 @@ export const VotePage: React.FC = () => {
               block
               onClick={handleSubmit}
               disabled={
-                selectedOptions.length === 0 ||
+                // For Quadratic voting, check if any credits are allocated
+                // For other types, check if any options are selected
+                (voting.type === VotingType.QUADRATIC
+                  ? getTotalQuadraticCredits() === 0
+                  : selectedOptions.length === 0) ||
                 !isInitialized ||
                 submitVoteMutation.isPending
               }

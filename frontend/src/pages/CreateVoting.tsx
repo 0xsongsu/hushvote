@@ -30,6 +30,8 @@ import { createVoting } from '../services/contractService';
 import { VotingType } from '../types';
 import dayjs from 'dayjs';
 import { useWallet } from '../hooks/useWallet';
+import { showTxNotification, updateTxNotification } from '../utils/txNotification';
+import { SUPPORTED_CHAINS } from '../config/contracts';
 
 const { Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -50,21 +52,23 @@ export const CreateVoting: React.FC = () => {
     }
 
     const [startTime, endTime] = values.dateRange;
-    
+
     setLoading(true);
+    let notificationKey: string | null = null;
+
     try {
       // Convert dates to Unix timestamps
       // Ensure start time is at least 5 minutes in the future
       const now = Math.floor(Date.now() / 1000);
       let startTimeUnix = Math.floor(startTime.unix());
       const endTimeUnix = Math.floor(endTime.unix());
-      
+
       // If start time is too close, adjust to 1 minute later for testing convenience
       if (startTimeUnix < now + 60) { // 1 minute buffer
         startTimeUnix = now + 60;
         message.info('Start time adjusted to 1 minute from now');
       }
-      
+
       // Validate duration (must be at least 1 hour)
       const duration = endTimeUnix - startTimeUnix;
       if (duration < 3600) {
@@ -72,17 +76,17 @@ export const CreateVoting: React.FC = () => {
         setLoading(false);
         return;
       }
-      
+
       if (duration > 365 * 24 * 3600) {
         message.error('Voting duration cannot exceed 365 days');
         setLoading(false);
         return;
       }
-      
+
       // Extract option labels and descriptions
       const optionLabels = values.options.map((opt: any) => opt.label);
       const optionDescriptions = values.options.map((opt: any) => opt.description || opt.label);
-      
+
       // Convert voting type string to number for contract
       const votingTypeMap: { [key: string]: number } = {
         [VotingType.SINGLE_CHOICE]: 0,
@@ -91,9 +95,17 @@ export const CreateVoting: React.FC = () => {
         [VotingType.QUADRATIC]: 3,
       };
       const votingTypeNumber = votingTypeMap[values.type] || 0;
-      
+
+      // Show pending notification
+      notificationKey = showTxNotification({
+        type: 'pending',
+        title: 'Creating Voting',
+        description: 'Waiting for wallet confirmation...',
+        chainId: SUPPORTED_CHAINS.SEPOLIA,
+      });
+
       // Call smart contract with updated parameters
-      const votingId = await createVoting(
+      const { votingId, txResult } = await createVoting(
         values.title,
         values.description,
         optionLabels,
@@ -102,13 +114,39 @@ export const CreateVoting: React.FC = () => {
         endTimeUnix,
         votingTypeNumber
       );
-      
-      message.success('Voting created successfully on blockchain!');
+
+      // Show success notification with tx link
+      updateTxNotification(notificationKey, {
+        type: 'success',
+        title: 'Voting Created',
+        description: `Voting #${votingId} created successfully!`,
+        txHash: txResult.hash,
+        chainId: SUPPORTED_CHAINS.SEPOLIA,
+      });
+
       const source = votingTypeNumber === 3 ? 'quadratic' : 'ballot';
       navigate(`/vote/${source}/${votingId}`);
     } catch (error: any) {
       console.error('Failed to create voting:', error);
-      message.error(error.message || 'Failed to create voting on blockchain');
+      const reason = error?.shortMessage || error?.reason || error?.message || 'Failed to create voting';
+
+      // Show error notification
+      if (notificationKey) {
+        updateTxNotification(notificationKey, {
+          type: 'error',
+          title: 'Creation Failed',
+          description: reason,
+          txHash: error?.transactionHash || error?.receipt?.hash,
+          chainId: SUPPORTED_CHAINS.SEPOLIA,
+        });
+      } else {
+        showTxNotification({
+          type: 'error',
+          title: 'Creation Failed',
+          description: reason,
+          chainId: SUPPORTED_CHAINS.SEPOLIA,
+        });
+      }
     } finally {
       setLoading(false);
     }

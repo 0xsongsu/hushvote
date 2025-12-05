@@ -8,12 +8,17 @@
     <!-- Cross-Origin Isolation for SharedArrayBuffer (required by FHE WASM) -->
     <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
     <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+    <link rel="preconnect" href="https://cdn.zama.org" />
     <title>HushVote - Privacy-First Voting with FHE</title>
-    <!-- Zama FHE Relayer SDK (fhEVM 0.9.1 compatible) -->
-    <script src="https://cdn.zama.org/relayer-sdk-js/0.3.0-5/relayer-sdk-js.umd.cjs" defer crossorigin="anonymous"></script>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Zama FHE Relayer SDK (fhEVM 0.9.1 compatible) -->
+    <script
+      src="https://cdn.zama.org/relayer-sdk-js/0.3.0-5/relayer-sdk-js.umd.cjs"
+      defer
+      crossorigin="anonymous"
+    ></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

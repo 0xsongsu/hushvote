@@ -7,6 +7,7 @@ import {
   LockOutlined,
   SafetyOutlined,
   ReloadOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { StatCard } from '../components/StatCard';
@@ -65,6 +66,16 @@ export const Dashboard: React.FC = () => {
   const activeVotings = useMemo(() => {
     return contextActiveVotings.slice(0, 3);
   }, [contextActiveVotings]);
+
+  // Get user's voted votings for history section
+  const myVotedVotings = useMemo(() => {
+    return votings
+      .filter((v) => {
+        const source = (v as any).source || 'ballot';
+        return hasUserVoted(source, v.id);
+      })
+      .sort((a, b) => b.startTime - a.startTime);
+  }, [votings, hasUserVoted]);
 
   return (
     <Content style={{ padding: 24, minHeight: 'calc(100vh - 64px)' }}>
@@ -214,6 +225,109 @@ export const Dashboard: React.FC = () => {
                 );
               })}
             </Row>
+          </div>
+        )}
+
+        {/* My Voting History */}
+        {isConnected && myVotedVotings.length > 0 && (
+          <div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <Title level={3} style={{ margin: 0 }}>
+                <HistoryOutlined style={{ marginRight: 8 }} />
+                My Voting History
+              </Title>
+              <Text type="secondary">{myVotedVotings.length} vote(s) cast</Text>
+            </div>
+            <Card
+              style={{
+                borderRadius: 12,
+                maxHeight: 320,
+                overflow: 'hidden'
+              }}
+              styles={{
+                body: { padding: 0 }
+              }}
+            >
+              <div style={{
+                maxHeight: 320,
+                overflowY: 'auto',
+              }}>
+                {myVotedVotings.map((voting, index) => {
+                  const status = (voting as any).status;
+                  const statusLabel = status === 1 ? 'Active' : status === 2 ? 'Ended' : status === 3 ? 'Tallied' : 'Pending';
+                  const statusColor = status === 1 ? '#10B981' : status === 2 ? '#F59E0B' : status === 3 ? '#2563EB' : '#9CA3AF';
+                  const source = (voting as any).source || 'ballot';
+
+                  return (
+                    <div
+                      key={`history-${source}-${voting.id}`}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: index < myVotedVotings.length - 1 ? '1px solid #f0f0f0' : 'none',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onClick={() => navigate(status === 3 ? `/results/${source}/${voting.id}` : `/vote/${source}/${voting.id}`)}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <CheckCircleOutlined style={{ color: '#10B981', fontSize: 14 }} />
+                          <Text strong style={{ fontSize: 14 }}>{voting.title}</Text>
+                          <Text style={{
+                            fontSize: 11,
+                            background: '#f0f0f0',
+                            padding: '2px 6px',
+                            borderRadius: 4
+                          }}>
+                            {getVotingTypeLabel(voting.votingType)}
+                          </Text>
+                          <Text style={{
+                            fontSize: 11,
+                            background: statusColor,
+                            color: '#FFFFFF',
+                            padding: '2px 6px',
+                            borderRadius: 4
+                          }}>
+                            {statusLabel}
+                          </Text>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            You voted
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {voting.totalVotes} total votes
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {getTimeAgo(voting.startTime)}
+                          </Text>
+                        </div>
+                      </div>
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/results/${source}/${voting.id}`);
+                        }}
+                      >
+                        View Results
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
           </div>
         )}
 
